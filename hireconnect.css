@@ -625,6 +625,19 @@ body {
   border-color: #fca5a5;
 }
 
+.hc-delete-own-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid #fca5a5;
+  background: #fef2f2;
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.hc-delete-own-btn:hover { background: #fee2e2; }
+
 /* === SIDEBAR === */
 .hc-sidebar {
   background: var(--card);

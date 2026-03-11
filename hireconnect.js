@@ -504,6 +504,79 @@ async function resolveRequest(reqId) {
   }
 }
 
+// ── Seeker: edit / delete own request ────────────────────────
+
+function showEditRequestForm(id) {
+  const req = openRequests.find((r) => r.id === id);
+  if (!req) return;
+
+  // Replace the expanded panel in-place
+  const article = document.querySelector(`.hc-request-row[data-id="${id}"]`);
+  if (!article) return;
+  const panel = article.querySelector(".hc-expanded-panel");
+  if (!panel) return;
+
+  panel.innerHTML = `
+    <div class="hc-expanded-header">Edit Connection Request</div>
+    <div class="hc-form-group">
+      <label for="edit_url_${id}">Job URL</label>
+      <input id="edit_url_${id}" type="url" class="hc-input" style="width:100%"
+        value="${escapeHtml(req.jobUrl)}" autocomplete="off" />
+    </div>
+    <div class="hc-form-group">
+      <label for="edit_company_${id}">Company</label>
+      <input id="edit_company_${id}" type="text" class="hc-input" style="width:100%"
+        value="${escapeHtml(req.company || "")}" autocomplete="off" />
+    </div>
+    <div class="hc-form-group">
+      <label for="edit_details_${id}">Details <span class="hc-optional">(optional)</span></label>
+      <input id="edit_details_${id}" type="text" class="hc-input" style="width:100%"
+        value="${escapeHtml(req.details || "")}" autocomplete="off" />
+    </div>
+    <div id="edit_error_${id}" class="hc-feedback" style="display:none"></div>
+    <div class="hc-form-actions" style="margin-top:12px">
+      <button class="hc-cancel-btn" onclick="toggleExpand('${id}')">Cancel</button>
+      <button class="hc-submit-btn" onclick="saveRequestEdit('${id}')">Save</button>
+    </div>`;
+}
+
+async function saveRequestEdit(id) {
+  const jobUrl  = document.getElementById(`edit_url_${id}`).value.trim();
+  const company = document.getElementById(`edit_company_${id}`).value.trim();
+  const details = document.getElementById(`edit_details_${id}`).value.trim();
+  const err     = document.getElementById(`edit_error_${id}`);
+
+  if (!jobUrl) { err.textContent = "Please enter a job URL."; err.style.display = ""; return; }
+  if (!jobUrl.startsWith("http://") && !jobUrl.startsWith("https://")) {
+    err.textContent = "Please enter a valid URL starting with http:// or https://";
+    err.style.display = ""; return;
+  }
+  if (!company) { err.textContent = "Please enter a company name."; err.style.display = ""; return; }
+  err.style.display = "none";
+
+  const btn = document.querySelector(`.hc-request-row[data-id="${id}"] .hc-submit-btn`);
+  if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+
+  try {
+    await db.collection("hireconnect_requests").doc(id).update({ jobUrl, company, details });
+    expandedRequestId = id; // keep expanded after re-render
+  } catch (e) {
+    err.textContent = "Failed to save: " + e.message;
+    err.style.display = "";
+    if (btn) { btn.disabled = false; btn.textContent = "Save"; }
+  }
+}
+
+async function deleteOwnRequest(id) {
+  if (!confirm("Delete this request? This cannot be undone.")) return;
+  try {
+    await db.collection("hireconnect_requests").doc(id).delete();
+    expandedRequestId = null;
+  } catch (e) {
+    showError("Failed to delete: " + e.message);
+  }
+}
+
 // ── Render: expanded panel ────────────────────────────────────
 
 function buildExpandedPanel(req) {
@@ -511,6 +584,7 @@ function buildExpandedPanel(req) {
     const safe    = safeUrl(req.jobUrl);
     const company = escapeHtml(req.company || "");
     const details = escapeHtml(req.details || "");
+    const id      = req.id;
     return `
       <div class="hc-expanded-panel">
         <div class="hc-expanded-header">Connection Request Details</div>
@@ -528,6 +602,11 @@ function buildExpandedPanel(req) {
           <span class="hc-detail-label">Details</span>
           <span class="hc-detail-value">${details}</span>
         </div>` : ""}
+        <div class="hc-form-actions" style="margin-top:12px">
+          <button class="hc-cancel-btn" onclick="toggleExpand(null)">Close</button>
+          <button class="hc-role-switch-btn" onclick="showEditRequestForm('${id}')">Edit</button>
+          <button class="hc-delete-own-btn" onclick="deleteOwnRequest('${id}')">Delete</button>
+        </div>
       </div>`;
   }
 
