@@ -296,6 +296,7 @@ function subscribeResolved() {
       (snap) => {
         resolvedRequests = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         renderResolvedRequests();
+        renderSubmitArea(); // keep Thank You points count in sync
       },
       (err) => {
         console.error("HireConnect resolved listener error:", err);
@@ -356,12 +357,17 @@ function renderSubmitArea() {
     const approvedMsg = isConnectorApproved
       ? "Browse open requests below and click <strong>Help →</strong> to provide hiring manager info."
       : "Your account is <strong>pending admin approval</strong>. You'll be able to help once approved.";
+    const tyPoints = resolvedRequests.filter((r) => r.resolvedByUid === currentUser.uid).length;
     area.innerHTML = `
       <div class="hc-submit-signin-prompt">
         <span class="hc-submit-signin-icon">🤝</span>
         <div>
           <strong>You're signed in as a Connector${connectorProfile ? " — " + escapeHtml(connectorProfile.company) : ""}</strong>
           <p>${approvedMsg}</p>
+        </div>
+        <div class="hc-ty-points" title="Requests you've resolved">
+          <span class="hc-ty-points-count">${tyPoints}</span>
+          <span class="hc-ty-points-label">Thank You Point${tyPoints !== 1 ? "s" : ""}</span>
         </div>
         <button class="hc-role-switch-btn" onclick="showConnectorCompanyEdit()">Update Company</button>
       </div>`;
