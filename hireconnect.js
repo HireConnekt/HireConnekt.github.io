@@ -144,6 +144,62 @@ async function registerConnector() {
   }
 }
 
+function showConnectorCompanyEdit() {
+  const area = document.getElementById("submitFormArea");
+  if (!area) return;
+  const current = connectorProfile ? (connectorProfile.company || "") : "";
+  area.innerHTML = `
+    <div class="hc-submit-signin-prompt">
+      <span class="hc-submit-signin-icon">🏢</span>
+      <div style="flex:1">
+        <strong>Update your company</strong>
+        <div class="hc-connector-company-form" style="margin-top:8px">
+          <input
+            id="updateCompanyInput"
+            type="text"
+            class="hc-input"
+            value="${escapeHtml(current)}"
+            placeholder="e.g. Google, Microsoft, Infosys…"
+            autocomplete="organization"
+          />
+          <div class="hc-connector-company-actions">
+            <button class="hc-cancel-btn" onclick="renderSubmitArea()">Cancel</button>
+            <button class="hc-submit-btn" onclick="updateConnectorCompany()">Save</button>
+          </div>
+          <div id="updateCompanyError" class="hc-feedback" style="display:none"></div>
+        </div>
+      </div>
+    </div>`;
+  const inp = document.getElementById("updateCompanyInput");
+  if (inp) inp.focus();
+}
+
+async function updateConnectorCompany() {
+  const inp   = document.getElementById("updateCompanyInput");
+  const errEl = document.getElementById("updateCompanyError");
+  const company = inp ? inp.value.trim() : "";
+
+  if (!company) {
+    errEl.textContent = "Please enter your company name.";
+    errEl.style.display = "";
+    return;
+  }
+  errEl.style.display = "none";
+
+  const btn = document.querySelector("#submitFormArea .hc-submit-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+
+  try {
+    await db.collection("hireconnect_connectors").doc(currentUser.uid).update({ company });
+    // onSnapshot will update connectorProfile; just restore the view
+    renderSubmitArea();
+  } catch (err) {
+    errEl.textContent = "Failed to save: " + err.message;
+    errEl.style.display = "";
+    if (btn) { btn.disabled = false; btn.textContent = "Save"; }
+  }
+}
+
 // ── Connector Profile ─────────────────────────────────────────
 
 function subscribeConnectorProfile() {
@@ -309,6 +365,7 @@ function renderSubmitArea() {
           <strong>You're signed in as a Connector${connectorProfile ? " — " + escapeHtml(connectorProfile.company) : ""}</strong>
           <p>${approvedMsg}</p>
         </div>
+        <button class="hc-role-switch-btn" onclick="showConnectorCompanyEdit()">Update Company</button>
       </div>`;
     return;
   }
