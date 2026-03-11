@@ -141,9 +141,11 @@ function showRoleStep1() {
 }
 
 async function registerConnector() {
-  const inp    = document.getElementById("connectorCompanyInput");
-  const errEl  = document.getElementById("connectorRegError");
-  const company = inp ? inp.value.trim() : "";
+  const inp       = document.getElementById("connectorCompanyInput");
+  const liInp     = document.getElementById("connectorLinkedinInput");
+  const errEl     = document.getElementById("connectorRegError");
+  const company   = inp   ? inp.value.trim()   : "";
+  const linkedinUrl = liInp ? liInp.value.trim() : "";
 
   if (!company) {
     errEl.textContent = "Please enter your company name.";
@@ -161,6 +163,7 @@ async function registerConnector() {
       email:       currentUser.email || "",
       displayName: currentUser.displayName || "",
       company,
+      linkedinUrl,
       approved:    false,
       requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });  // merge so re-registering doesn't reset an already-approved status
@@ -565,10 +568,11 @@ async function resolveRequest(reqId) {
 
   try {
     await db.collection("hireconnect_requests").doc(reqId).update({
-      status:         "resolved",
-      resolvedAt:     firebase.firestore.FieldValue.serverTimestamp(),
-      resolvedBy:     stayAnonymous ? "" : (currentUser.displayName || currentUser.email || "Community Member"),
-      resolvedByUid:  currentUser.uid,
+      status:              "resolved",
+      resolvedAt:          firebase.firestore.FieldValue.serverTimestamp(),
+      resolvedBy:          stayAnonymous ? "" : (currentUser.displayName || currentUser.email || "Community Member"),
+      resolvedByUid:       currentUser.uid,
+      resolverLinkedinUrl: (connectorProfile && connectorProfile.linkedinUrl) || "",
       hiringManager,
       referralIntent,
       resolverNotes,
@@ -984,9 +988,12 @@ function renderResolvedRequests() {
     const label      = escapeHtml(truncateUrl(req.jobUrl));
     const company    = escapeHtml(req.company || "");
     const details    = escapeHtml(req.details  || "");
-    const thanks     = req.resolvedBy
-      ? "Thanks " + escapeHtml(req.resolvedBy) + "!"
-      : "Thanks Anonymous!";
+    const resolverName    = req.resolvedBy ? escapeHtml(req.resolvedBy) : "Anonymous";
+    const resolverLi      = req.resolverLinkedinUrl ? safeUrl(req.resolverLinkedinUrl) : null;
+    const resolverDisplay = resolverLi && resolverLi !== "#"
+      ? `<a href="${resolverLi}" target="_blank" rel="noopener noreferrer" class="hc-thanks-link">${resolverName}</a>`
+      : resolverName;
+    const thanks = `Thanks ${resolverDisplay}!`;
     const seekerName = currentRole === "connector"
       ? (req.submittedBy ? escapeHtml(req.submittedBy) : "Anonymous Seeker")
       : "";

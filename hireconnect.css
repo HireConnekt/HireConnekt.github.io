@@ -1006,3 +1006,12 @@ body {
 .hc-footer-link:hover {
   text-decoration: underline;
 }
+.hc-thanks-link {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+.hc-thanks-link:hover {
+  text-decoration-style: solid;
+}
