@@ -507,6 +507,30 @@ async function resolveRequest(reqId) {
 // ── Render: expanded panel ────────────────────────────────────
 
 function buildExpandedPanel(req) {
+  if (currentRole === "seeker") {
+    const safe    = safeUrl(req.jobUrl);
+    const company = escapeHtml(req.company || "");
+    const details = escapeHtml(req.details || "");
+    return `
+      <div class="hc-expanded-panel">
+        <div class="hc-expanded-header">Connection Request Details</div>
+        <div class="hc-detail-row">
+          <span class="hc-detail-label">Job URL</span>
+          <span class="hc-detail-value"><a href="${safe}" target="_blank" rel="noopener noreferrer">${escapeHtml(req.jobUrl)}</a></span>
+        </div>
+        ${company ? `
+        <div class="hc-detail-row">
+          <span class="hc-detail-label">Company</span>
+          <span class="hc-detail-value">${company}</span>
+        </div>` : ""}
+        ${details ? `
+        <div class="hc-detail-row">
+          <span class="hc-detail-label">Details</span>
+          <span class="hc-detail-value">${details}</span>
+        </div>` : ""}
+      </div>`;
+  }
+
   if (currentRole === "connector" && !isConnectorApproved) {
     return `
       <div class="hc-expanded-panel">
