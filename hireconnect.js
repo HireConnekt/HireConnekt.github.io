@@ -686,11 +686,27 @@ function renderCompanySidebar() {
   const sidebar = document.getElementById("companySidebar");
   if (!sidebar) return;
 
-  // Not signed in — hide sidebar
+  // Not signed in — show approved connector companies from Firestore
   if (!currentUser) {
-    const countEl = document.getElementById("sidebarCount");
-    if (countEl) { countEl.textContent = ""; countEl.style.display = "none"; }
-    sidebar.innerHTML = "";
+    db.collection("hireconnect_connectors")
+      .where("approved", "==", true)
+      .get()
+      .then((snap) => {
+        const companies = [...new Set(
+          snap.docs.map((d) => d.data().company).filter(Boolean)
+        )].sort((a, b) => a.localeCompare(b));
+
+        const countEl = document.getElementById("sidebarCount");
+        if (countEl) {
+          countEl.textContent = companies.length;
+          countEl.style.display = companies.length > 0 ? "" : "none";
+        }
+
+        sidebar.innerHTML = companies.length === 0
+          ? `<div class="hc-empty" style="padding:8px 0;font-size:12px">No connected companies yet</div>`
+          : companies.map((c) => `<div class="hc-company-item">${escapeHtml(c)}</div>`).join("");
+      })
+      .catch(() => { sidebar.innerHTML = ""; });
     return;
   }
 
