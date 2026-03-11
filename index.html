@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>HireConnect - SMASH</title>
+  <link rel="icon" type="image/x-icon" href="../icons/smash-logo.ico" />
+  <link rel="apple-touch-icon" href="../icons/smash-logo.png" />
+  <meta name="theme-color" content="#3b82f6" />
+  <meta name="description" content="HireConnect - Community-powered job networking for the Syro Malabar parish" />
+
+  <!-- Firebase SDKs (same versions as main app) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+  <link rel="stylesheet" href="hireconnect.css" />
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="hc-topbar">
+  <a href="../index.html" class="hc-back-link">&#8592; SMASH</a>
+  <h1 class="hc-title">HireConnect</h1>
+  <div id="authArea" class="hc-auth-area"></div>
+</header>
+
+<!-- HERO -->
+<section class="hc-hero">
+  <div class="hc-hero-inner">
+    <p class="hc-hero-headline">
+      Help identify the right internal contact path faster.<br>
+      <span class="hc-hero-sub">Your community knows who to reach out.</span>
+    </p>
+    <div class="hc-hero-cards">
+      <div class="hc-hero-card hc-hero-card--seeker">
+        <span class="hc-hero-card-icon">🎯</span>
+        <div>
+          <strong>Job Seekers</strong>
+          <p>Sign in and submit a job posting — optionally <b>anonymously</b>. Community members identify the hiring manager or internal contact so you can reach the right person, not just apply into the void.</p>
+        </div>
+      </div>
+      <div class="hc-hero-card hc-hero-card--helper">
+        <span class="hc-hero-card-icon">🤝</span>
+        <div>
+          <strong>Community</strong>
+          <p>Work at the company? <b>Anonymously</b> share hiring manager info or offer a referral. A few seconds of your time can change someone's career trajectory.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SUBMIT BAR -->
+<section class="hc-submit-bar">
+  <div class="hc-submit-inner" id="submitFormArea">
+    <!-- Rendered by renderSubmitArea() in hireconnect.js -->
+  </div>
+</section>
+
+<!-- MAIN: two-column -->
+<main class="hc-main">
+
+  <!-- LEFT: Open requests -->
+  <section class="hc-open-panel">
+    <div class="hc-panel-header">
+      <h2 id="openPanelTitle">
+        Open Postings
+        <span id="openPanelCount" class="hc-count-badge" style="display:none"></span>
+      </h2>
+      <input
+        id="searchBox"
+        type="search"
+        class="hc-search"
+        placeholder="🔍  Search by company or URL…"
+        oninput="onSearch(this.value)"
+        autocomplete="off"
+      />
+    </div>
+    <div id="openRequestsList" class="hc-requests-list">
+      <div class="hc-empty">Loading…</div>
+    </div>
+  </section>
+
+  <!-- RIGHT: Company sidebar -->
+  <aside class="hc-sidebar">
+    <h3 id="sidebarTitle" class="hc-sidebar-title">
+      Companies
+      <span id="sidebarCount" class="hc-count-badge" style="display:none"></span>
+    </h3>
+    <div id="companySidebar" class="hc-company-list">
+      <div class="hc-empty" style="padding:8px 0">—</div>
+    </div>
+  </aside>
+
+</main>
+
+<!-- RESOLVED SECTION -->
+<section class="hc-resolved-section">
+  <h2 class="hc-resolved-header">
+    ✅ Resolved
+    <span id="resolvedCount" class="hc-count-badge hc-count-badge--green" style="display:none"></span>
+  </h2>
+  <div id="resolvedList" class="hc-requests-list">
+    <div class="hc-empty">✨ No resolved requests yet.</div>
+  </div>
+</section>
+
+<!-- ROLE PICKER MODAL -->
+<div id="rolePickerModal" class="hc-role-modal" style="display:none">
+  <div class="hc-role-modal-inner">
+    <!-- Step 1: Role selection -->
+    <div id="roleStep1">
+      <h2 class="hc-role-modal-title">How are you joining today?</h2>
+      <p class="hc-role-modal-sub">Your choice shapes what you see. You can switch anytime.</p>
+      <div class="hc-role-cards-picker">
+        <button class="hc-role-card hc-role-card--seeker" onclick="saveRole('seeker')">
+          <span class="hc-role-card-icon">🎯</span>
+          <strong>I'm a Job Seeker</strong>
+          <p>Post a request and track your own submissions.</p>
+        </button>
+        <button class="hc-role-card hc-role-card--connector" onclick="showConnectorCompanyStep()">
+          <span class="hc-role-card-icon">🤝</span>
+          <strong>I'm a Connector</strong>
+          <p>Browse all open requests and help identify hiring managers.</p>
+        </button>
+      </div>
+    </div>
+    <!-- Step 2: Connector company input -->
+    <div id="roleStep2" style="display:none">
+      <h2 class="hc-role-modal-title">Where do you work?</h2>
+      <p class="hc-role-modal-sub">We'll show you open requests for your company first.</p>
+      <div class="hc-connector-company-form">
+        <input
+          id="connectorCompanyInput"
+          type="text"
+          class="hc-input"
+          placeholder="e.g. Google, Microsoft, Infosys…"
+          autocomplete="organization"
+        />
+        <div class="hc-connector-company-actions">
+          <button class="hc-cancel-btn" onclick="showRoleStep1()">← Back</button>
+          <button class="hc-submit-btn" onclick="registerConnector()">Continue</button>
+        </div>
+        <div id="connectorRegError" class="hc-feedback" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase config -->
+<script src="firebase-config.js"></script>
+<script src="hireconnect.js"></script>
+
+</body>
+</html>

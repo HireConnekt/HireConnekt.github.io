@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>HireConnect Admin – SMASH</title>
+  <link rel="icon" type="image/x-icon" href="../icons/smash-logo.ico" />
+  <meta name="theme-color" content="#3b82f6" />
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+  <link rel="stylesheet" href="hireconnect.css" />
+</head>
+<body>
+
+<header class="hc-topbar">
+  <a href="index.html" class="hc-back-link">&#8592; HireConnect</a>
+  <h1 class="hc-title">Admin Dashboard</h1>
+  <div id="authArea" class="hc-auth-area"></div>
+</header>
+
+<div id="accessDenied" style="display:none">
+  <div class="hc-access-denied">
+    <h2>🚫 Access Denied</h2>
+    <p id="accessDeniedMsg">You do not have permission to view this page.</p>
+    <button class="hc-admin-signin-btn" id="signinBtn" onclick="adminSignIn()" style="display:none">
+      Sign in with Google
+    </button>
+  </div>
+</div>
+
+<main id="adminMain" class="hc-admin-main" style="display:none">
+
+  <!-- SEEKERS SECTION -->
+  <section class="hc-admin-section">
+    <h2>🎯 Seekers
+      <span id="seekerCount" class="hc-count-badge" style="display:none"></span>
+    </h2>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:12px">
+      Community members who have submitted connection requests.
+    </p>
+    <div id="seekerTable" class="hc-admin-table-wrap">
+      <div class="hc-empty">Loading…</div>
+    </div>
+  </section>
+
+  <!-- CONNECTORS SECTION -->
+  <section class="hc-admin-section">
+    <h2>🤝 Connectors
+      <span id="connectorCount" class="hc-count-badge" style="display:none"></span>
+    </h2>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:12px">
+      Community members who have registered to help identify hiring managers.
+    </p>
+    <div id="pendingBanner" class="hc-pending-banner" style="display:none">
+      ⚠️ <strong><span id="pendingCount">0</span> connector(s)</strong> awaiting approval
+    </div>
+    <div id="connectorTable" class="hc-admin-table-wrap">
+      <div class="hc-empty">Loading…</div>
+    </div>
+  </section>
+
+</main>
+
+<script src="firebase-config.js"></script>
+<script src="admin.js"></script>
+
+</body>
+</html>
