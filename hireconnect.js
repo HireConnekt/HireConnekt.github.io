@@ -101,6 +101,32 @@ function showRolePicker() {
 }
 
 function showConnectorCompanyStep() {
+  // If connector already has a company on file, skip the form and go straight in
+  if (connectorProfile && connectorProfile.company) {
+    saveRole("connector");
+    return;
+  }
+
+  // Check Firestore in case connectorProfile hasn't loaded yet
+  if (currentUser) {
+    db.collection("hireconnect_connectors").doc(currentUser.uid).get().then((snap) => {
+      if (snap.exists && snap.data().company) {
+        connectorProfile    = snap.data();
+        isConnectorApproved = connectorProfile.approved === true;
+        saveRole("connector");
+      } else {
+        document.getElementById("roleStep1").style.display = "none";
+        document.getElementById("roleStep2").style.display = "";
+        const inp = document.getElementById("connectorCompanyInput");
+        if (inp) inp.focus();
+      }
+    }).catch(() => {
+      document.getElementById("roleStep1").style.display = "none";
+      document.getElementById("roleStep2").style.display = "";
+    });
+    return;
+  }
+
   document.getElementById("roleStep1").style.display = "none";
   document.getElementById("roleStep2").style.display = "";
   const inp = document.getElementById("connectorCompanyInput");
