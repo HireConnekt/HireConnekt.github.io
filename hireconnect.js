@@ -672,6 +672,7 @@ function buildExpandedPanel(req) {
           <input type="checkbox" id="anon_${id}" class="hc-anon-checkbox" />
           Stay anonymous
         </label>
+        ${isHcAdmin ? `<button class="hc-delete-own-btn" onclick="deleteRequest('${id}')">Delete</button>` : ""}
         <button class="hc-cancel-btn" onclick="toggleExpand(null)">Cancel</button>
         <button
           id="resolveBtn_${id}"
