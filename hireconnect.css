@@ -971,3 +971,38 @@ body {
 @media (max-width: 640px) {
   .hc-admin-table th, .hc-admin-table td { padding: 8px 10px; font-size: 0.78rem; }
 }
+
+/* === FOOTER === */
+.hc-footer {
+  margin-top: 48px;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+  padding: 20px 24px;
+}
+.hc-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.83rem;
+  color: var(--muted);
+}
+.hc-footer-brand {
+  font-weight: 700;
+  color: var(--fg);
+}
+.hc-footer-sep {
+  color: var(--border);
+}
+.hc-footer-tagline {
+  color: var(--muted);
+}
+.hc-footer-link {
+  color: var(--active);
+  text-decoration: none;
+  font-weight: 500;
+}
+.hc-footer-link:hover {
+  text-decoration: underline;
+}
