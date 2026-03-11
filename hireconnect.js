@@ -278,7 +278,6 @@ function subscribeOpen() {
       },
       (err) => {
         console.error("HireConnect open listener error:", err);
-        // If index missing, Firestore logs a URL to create it in the console.
         document.getElementById("openRequestsList").innerHTML =
           `<div class="hc-empty">Error loading requests. Check console.</div>`;
       }
@@ -312,7 +311,6 @@ function subscribeAdminConfig() {
       hcAdminEmails = snap.exists ? (snap.data().emails || []) : [];
       const email   = currentUser ? (currentUser.email || "").toLowerCase() : "";
       isHcAdmin     = email && hcAdminEmails.map(e => e.toLowerCase()).includes(email);
-      // Re-render lists so delete buttons appear/disappear live
       renderOpenRequests();
       renderResolvedRequests();
     },
@@ -500,7 +498,6 @@ async function resolveRequest(reqId) {
       resolverNotes,
     });
     expandedRequestId = null;
-    // Firestore listeners automatically move the item to the resolved section
   } catch (err) {
     showError("Failed to resolve: " + err.message);
     if (btn) { btn.disabled = false; btn.textContent = "Mark as Resolved"; }
@@ -635,13 +632,12 @@ function renderOpenRequests() {
   // Update panel title based on role
   const titleEl = document.getElementById("openPanelTitle");
   if (titleEl) {
-    // Replace text node content, preserving the count badge span child
     const badge = titleEl.querySelector("#openPanelCount");
     titleEl.textContent = currentRole === "seeker" ? "My Open Requests " : "Open Postings ";
     if (badge) titleEl.appendChild(badge);
   }
 
-  // Hide postings entirely when not signed in
+  // Not signed in — hide everything
   if (!currentUser) {
     const countEl = document.getElementById("openPanelCount");
     if (countEl) { countEl.textContent = ""; countEl.style.display = "none"; }
@@ -649,7 +645,7 @@ function renderOpenRequests() {
     return;
   }
 
-  // Apply role filter first, then search filter
+  // Seekers see only their own posts; connectors see all
   let source = openRequests;
   if (currentRole === "seeker") {
     source = source.filter((r) => r.submittedByUid === currentUser.uid);
@@ -665,7 +661,6 @@ function renderOpenRequests() {
       )
     : source;
 
-  // Update count badge
   const countEl = document.getElementById("openPanelCount");
   if (countEl) {
     countEl.textContent = filtered.length;
@@ -691,14 +686,22 @@ function renderCompanySidebar() {
   const sidebar = document.getElementById("companySidebar");
   if (!sidebar) return;
 
-  const base = (currentRole === "seeker" && currentUser)
+  // Not signed in — hide sidebar
+  if (!currentUser) {
+    const countEl = document.getElementById("sidebarCount");
+    if (countEl) { countEl.textContent = ""; countEl.style.display = "none"; }
+    sidebar.innerHTML = "";
+    return;
+  }
+
+  // Seekers see only companies from their own posts
+  const base = currentRole === "seeker"
     ? openRequests.filter((r) => r.submittedByUid === currentUser.uid)
     : openRequests;
   const companies = [...new Set(base.map((r) => r.company).filter(Boolean))].sort(
     (a, b) => a.localeCompare(b)
   );
 
-  // Update sidebar count badge
   const countEl = document.getElementById("sidebarCount");
   if (countEl) {
     countEl.textContent = companies.length;
@@ -762,12 +765,19 @@ function renderResolvedRequests() {
   const list = document.getElementById("resolvedList");
   if (!list) return;
 
-  // Apply role filter
-  const source = (currentRole === "seeker" && currentUser)
+  // Not signed in — hide everything
+  if (!currentUser) {
+    const countEl = document.getElementById("resolvedCount");
+    if (countEl) { countEl.textContent = ""; countEl.style.display = "none"; }
+    list.innerHTML = `<div class="hc-empty">🔒 Sign in to view resolved requests.</div>`;
+    return;
+  }
+
+  // Seekers see only their own resolved posts; connectors see all
+  const source = currentRole === "seeker"
     ? resolvedRequests.filter((r) => r.submittedByUid === currentUser.uid)
     : resolvedRequests;
 
-  // Update resolved count badge
   const countEl = document.getElementById("resolvedCount");
   if (countEl) {
     countEl.textContent = source.length;
