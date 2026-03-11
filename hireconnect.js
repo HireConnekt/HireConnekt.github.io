@@ -19,6 +19,7 @@ let currentRole         = null;  // "seeker" | "connector" | null
 let connectorProfile    = null;  // Firestore doc for current connector user
 let isConnectorApproved = false; // derived from connectorProfile.approved
 let unsubscribeConnectorProfile = null;
+let connectorCompanies = [];     // unique approved connector company names
 
 // ── Utilities ────────────────────────────────────────────────
 
@@ -83,6 +84,7 @@ function saveRole(role) {
   localStorage.setItem(roleKey(), role);
   document.getElementById("rolePickerModal").style.display = "none";
   if (role === "connector") subscribeConnectorProfile();
+  if (role === "seeker") loadConnectorCompanies();
   renderAuthBadge();
   renderSubmitArea();
   renderOpenRequests();
@@ -360,6 +362,33 @@ async function deleteRequest(id) {
   }
 }
 
+// ── Connector companies loader ────────────────────────────────
+
+function loadConnectorCompanies() {
+  db.collection("hireconnect_connectors")
+    .where("approved", "==", true)
+    .get()
+    .then((snap) => {
+      connectorCompanies = [...new Set(
+        snap.docs.map((d) => d.data().company).filter(Boolean)
+      )].sort((a, b) => a.localeCompare(b));
+      if (currentRole === "seeker") renderSubmitArea();
+    })
+    .catch(() => {});
+}
+
+function onCompanySelect(val) {
+  const manual = document.getElementById("companyManualInput");
+  if (!manual) return;
+  if (val === "__other__") {
+    manual.style.display = "";
+    manual.focus();
+  } else {
+    manual.style.display = "none";
+    manual.value = "";
+  }
+}
+
 // ── Submit Area Render ────────────────────────────────────────
 
 function renderSubmitArea() {
@@ -412,13 +441,21 @@ function renderSubmitArea() {
         placeholder="Paste LinkedIn or job posting URL"
         autocomplete="off"
       />
-      <input
-        id="companyInput"
-        type="text"
-        class="hc-input hc-company-input"
-        placeholder="Company name"
-        autocomplete="off"
-      />
+      <div class="hc-company-select-wrap">
+        <select id="companyInput" class="hc-input hc-company-input" onchange="onCompanySelect(this.value)">
+          <option value="" disabled selected>Select a company…</option>
+          ${connectorCompanies.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("")}
+          <option value="__other__">Other (type manually)</option>
+        </select>
+        <input
+          id="companyManualInput"
+          type="text"
+          class="hc-input hc-company-input"
+          placeholder="Enter company name"
+          autocomplete="off"
+          style="display:none;margin-top:6px"
+        />
+      </div>
       <input
         id="detailsInput"
         type="text"
@@ -446,12 +483,16 @@ async function submitRequest() {
 
   const jobUrlEl   = document.getElementById("jobUrlInput");
   const companyEl  = document.getElementById("companyInput");
+  const manualEl   = document.getElementById("companyManualInput");
   const detailsEl  = document.getElementById("detailsInput");
   const anonEl     = document.getElementById("submitAnonCheck");
   const btn        = document.getElementById("submitBtn");
 
-  const jobUrl       = jobUrlEl.value.trim();
-  const company      = companyEl.value.trim();
+  const jobUrl = jobUrlEl.value.trim();
+  const selectedVal = companyEl ? companyEl.value : "";
+  const company = (selectedVal === "__other__" || selectedVal === "")
+    ? (manualEl ? manualEl.value.trim() : "")
+    : selectedVal.trim();
   const details      = detailsEl.value.trim();
   const stayAnonymous = anonEl ? anonEl.checked : false;
 
@@ -475,7 +516,8 @@ async function submitRequest() {
       submittedByUid:  currentUser.uid,   // always stored so Seekers can see their own tickets
     });
     jobUrlEl.value  = "";
-    companyEl.value = "";
+    if (companyEl) companyEl.value = "";
+    if (manualEl)  { manualEl.value = ""; manualEl.style.display = "none"; }
     detailsEl.value = "";
     if (anonEl) anonEl.checked = false;
     showSuccess("Request submitted! The community will help you shortly.");
@@ -1007,6 +1049,8 @@ document.addEventListener("DOMContentLoaded", () => {
         showRolePicker();
       } else if (currentRole === "connector") {
         subscribeConnectorProfile();
+      } else if (currentRole === "seeker") {
+        loadConnectorCompanies();
       }
     } else {
       currentRole         = null;
