@@ -641,9 +641,17 @@ function renderOpenRequests() {
     if (badge) titleEl.appendChild(badge);
   }
 
+  // Hide postings entirely when not signed in
+  if (!currentUser) {
+    const countEl = document.getElementById("openPanelCount");
+    if (countEl) { countEl.textContent = ""; countEl.style.display = "none"; }
+    list.innerHTML = `<div class="hc-empty">🔒 Sign in to view postings.</div>`;
+    return;
+  }
+
   // Apply role filter first, then search filter
   let source = openRequests;
-  if (currentRole === "seeker" && currentUser) {
+  if (currentRole === "seeker") {
     source = source.filter((r) => r.submittedByUid === currentUser.uid);
   }
 
