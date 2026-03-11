@@ -856,6 +856,24 @@ body {
 }
 .hc-role-switch-btn:hover { color: var(--fg); }
 
+.hc-connector-company-name {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.hc-update-company-link {
+  background: none;
+  border: none;
+  padding: 0 0 0 6px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+  font-family: inherit;
+  vertical-align: middle;
+}
+.hc-update-company-link:hover { color: #2563eb; }
+
 /* === THANK YOU POINTS === */
 .hc-ty-points {
   display: flex;

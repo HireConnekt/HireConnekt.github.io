@@ -358,18 +358,20 @@ function renderSubmitArea() {
       ? "Browse open requests below and click <strong>Help →</strong> to provide hiring manager info."
       : "Your account is <strong>pending admin approval</strong>. You'll be able to help once approved.";
     const tyPoints = resolvedRequests.filter((r) => r.resolvedByUid === currentUser.uid).length;
+    const companyHtml = connectorProfile
+      ? ` — <span class="hc-connector-company-name">${escapeHtml(connectorProfile.company)}</span><button class="hc-update-company-link" onclick="showConnectorCompanyEdit()">Update</button>`
+      : "";
     area.innerHTML = `
       <div class="hc-submit-signin-prompt">
         <span class="hc-submit-signin-icon">🤝</span>
         <div>
-          <strong>You're signed in as a Connector${connectorProfile ? " — " + escapeHtml(connectorProfile.company) : ""}</strong>
+          <strong>You're signed in as a Connector${companyHtml}</strong>
           <p>${approvedMsg}</p>
         </div>
         <div class="hc-ty-points" title="Requests you've resolved">
           <span class="hc-ty-points-count">${tyPoints}</span>
           <span class="hc-ty-points-label">Thank You Point${tyPoints !== 1 ? "s" : ""}</span>
         </div>
-        <button class="hc-role-switch-btn" onclick="showConnectorCompanyEdit()">Update Company</button>
       </div>`;
     return;
   }
