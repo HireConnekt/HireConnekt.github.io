@@ -588,6 +588,9 @@ function buildRequestRow(req) {
   const company    = escapeHtml(req.company || "");
   const details    = escapeHtml(req.details || "");
   const id         = req.id;
+  const seekerName = currentRole === "connector"
+    ? (req.submittedBy ? escapeHtml(req.submittedBy) : "Anonymous Seeker")
+    : "";
 
   const article = document.createElement("article");
   article.className = "hc-request-row" + (isExpanded ? " expanded" : "");
@@ -609,6 +612,7 @@ function buildRequestRow(req) {
         >${label}</a>
         ${company ? `<span class="hc-company-badge">${company}</span>` : ""}
         ${details ? `<span class="hc-details-preview">${details}</span>` : ""}
+        ${seekerName ? `<span class="hc-seeker-name">👤 ${seekerName}</span>` : ""}
       </div>
       ${currentRole === "connector" && !isConnectorApproved
         ? `<span class="hc-pending-badge">⏳ Pending Approval</span>`
@@ -803,6 +807,9 @@ function renderResolvedRequests() {
     const thanks     = req.resolvedBy
       ? "Thanks " + escapeHtml(req.resolvedBy) + "!"
       : "Thanks Anonymous!";
+    const seekerName = currentRole === "connector"
+      ? (req.submittedBy ? escapeHtml(req.submittedBy) : "Anonymous Seeker")
+      : "";
     const id = req.id;
 
     const article = document.createElement("article");
@@ -825,6 +832,7 @@ function renderResolvedRequests() {
           >${label}</a>
           ${company ? `<span class="hc-company-badge">${company}</span>` : ""}
           ${details ? `<span class="hc-details-preview">${details}</span>` : ""}
+          ${seekerName ? `<span class="hc-seeker-name">👤 ${seekerName}</span>` : ""}
         </div>
         <span class="hc-thanks-badge">${thanks}</span>
         ${isHcAdmin ? `<button class="hc-delete-btn" title="Delete posting" onclick="event.stopPropagation(); deleteRequest('${id}')">🗑</button>` : ""}
