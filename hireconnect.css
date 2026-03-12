@@ -68,7 +68,7 @@ body {
   letter-spacing: 0.08em;
 }
 
-.hc-auth-area { display: flex; align-items: center; gap: 8px; }
+.hc-auth-area { display: flex; align-items: center; gap: 8px; justify-content: flex-end; margin-left: auto; }
 
 .hc-auth-name {
   font-size: 13px;
