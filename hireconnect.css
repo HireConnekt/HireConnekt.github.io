@@ -1016,17 +1016,19 @@ body {
   text-decoration-style: solid;
 }
 .hc-beta-tag {
-  display: inline-block;
-  font-size: 0.3em;
-  font-weight: 500;
+  display: block;
+  font-size: 0.5em;
+  font-weight: 700;
   letter-spacing: 0.05em;
-  text-transform: uppercase;
+  text-transform: none;
   color: #fff;
+  -webkit-text-fill-color: #fff;
   background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
   border-radius: 6px;
-  padding: 2px 7px;
-  vertical-align: middle;
+  padding: 1px 8px;
   line-height: 1.6;
-  position: relative;
-  top: -2px;
+  width: fit-content;
+  margin: 1px auto 0;
 }
