@@ -721,7 +721,7 @@ function buildExpandedPanel(req) {
           id="hm_${id}"
           class="hc-input"
           style="width:100%"
-          placeholder="Name, LinkedIn profile URL, email, etc."
+          placeholder="Share only Name and LinkedIn URL. No email or phone numbers, please."
           autocomplete="off"
         />
       </div>
