@@ -31,14 +31,13 @@ body {
   position: sticky;
   top: 0;
   z-index: 10;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
   align-items: center;
   padding: 12px 20px;
   background: #fff;
   border-bottom: 1px solid var(--border);
   box-shadow: 0 1px 6px rgba(0,0,0,0.06);
-  gap: 12px;
+  gap: 16px;
 }
 
 .hc-back-link {
@@ -55,6 +54,21 @@ body {
   transition: background 0.15s;
 }
 .hc-back-link:hover { background: #eff6ff; }
+
+.hc-nav-link {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: 8px;
+  transition: background 0.15s, color 0.15s;
+}
+.hc-nav-link:hover { background: #eff6ff; color: var(--active); }
+.hc-nav-link.active { color: var(--active); }
 
 .hc-title {
   text-align: center;
@@ -1031,4 +1045,82 @@ body {
   line-height: 1.6;
   width: fit-content;
   margin: 1px auto 0;
+}
+
+/* === BLOG PAGE === */
+.hc-blog-main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 40px 20px 60px;
+}
+.hc-blog-hero {
+  text-align: center;
+  margin-bottom: 40px;
+}
+.hc-blog-hero-title {
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  font-weight: 800;
+  background: linear-gradient(120deg, #3b82f6 0%, #7b2ff7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+}
+.hc-blog-hero-sub {
+  color: var(--muted);
+  font-size: 1rem;
+}
+.hc-blog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+.hc-blog-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: box-shadow 0.15s;
+}
+.hc-blog-card:hover { box-shadow: var(--shadow-md); }
+.hc-blog-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hc-blog-tag {
+  background: #eff6ff;
+  color: var(--active);
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 20px;
+  padding: 2px 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.hc-blog-date {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.hc-blog-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--fg);
+  line-height: 1.35;
+}
+.hc-blog-card-excerpt {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  flex: 1;
+}
+.hc-blog-read-more {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--active);
+  margin-top: 4px;
 }
