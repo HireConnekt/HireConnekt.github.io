@@ -833,6 +833,14 @@ function renderOpenRequests() {
     return;
   }
 
+  // Unapproved connector — hide until admin approves
+  if (currentRole === "connector" && !isConnectorApproved) {
+    const countEl = document.getElementById("openPanelCount");
+    if (countEl) { countEl.textContent = ""; countEl.style.display = "none"; }
+    list.innerHTML = `<div class="hc-empty">⏳ Your Connector account is pending admin approval. Open postings will appear here once you're approved.</div>`;
+    return;
+  }
+
   // Seekers see only their own posts; connectors see all
   let source = openRequests;
   if (currentRole === "seeker") {
@@ -958,6 +966,14 @@ function renderResolvedRequests() {
     const countEl = document.getElementById("resolvedCount");
     if (countEl) { countEl.textContent = ""; countEl.style.display = "none"; }
     list.innerHTML = `<div class="hc-empty">🔒 Sign in to view resolved requests.</div>`;
+    return;
+  }
+
+  // Unapproved connector — hide until admin approves
+  if (currentRole === "connector" && !isConnectorApproved) {
+    const countEl = document.getElementById("resolvedCount");
+    if (countEl) { countEl.textContent = ""; countEl.style.display = "none"; }
+    list.innerHTML = `<div class="hc-empty">⏳ Resolved requests will be visible once your account is approved.</div>`;
     return;
   }
 
