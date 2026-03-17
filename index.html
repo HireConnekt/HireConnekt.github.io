@@ -105,10 +105,20 @@
 
 <!-- RESOLVED SECTION -->
 <section class="hc-resolved-section">
-  <h2 class="hc-resolved-header">
-    ✅ Resolved
-    <span id="resolvedCount" class="hc-count-badge hc-count-badge--green" style="display:none"></span>
-  </h2>
+  <div class="hc-panel-header">
+    <h2 class="hc-resolved-header">
+      ✅ Resolved
+      <span id="resolvedCount" class="hc-count-badge hc-count-badge--green" style="display:none"></span>
+    </h2>
+    <input
+      id="resolvedSearchBox"
+      type="search"
+      class="hc-search"
+      placeholder="🔍  Search resolved…"
+      oninput="onResolvedSearch(this.value)"
+      autocomplete="off"
+    />
+  </div>
   <div id="resolvedList" class="hc-requests-list">
     <div class="hc-empty">✨ No resolved requests yet.</div>
   </div>

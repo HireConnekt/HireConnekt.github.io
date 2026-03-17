@@ -11,6 +11,7 @@ let resolvedRequests  = [];      // [{id, ...}]
 let expandedRequestId         = null;  // doc ID of expanded open row, or null
 let expandedResolvedId        = null;  // doc ID of expanded resolved row, or null
 let searchQuery               = "";
+let resolvedSearchQuery       = "";
 let unsubscribeOpen     = null;
 let unsubscribeResolved = null;
 let hcAdminEmails       = [];    // loaded from hireconnect_config/admins in Firestore
@@ -1028,9 +1029,19 @@ function renderResolvedRequests() {
   }
 
   // Seekers see only their own resolved posts; connectors see all
-  const source = currentRole === "seeker"
+  let source = currentRole === "seeker"
     ? resolvedRequests.filter((r) => r.submittedByUid === currentUser.uid)
     : resolvedRequests;
+
+  const rq = resolvedSearchQuery.toLowerCase();
+  if (rq) {
+    source = source.filter(
+      (r) =>
+        (r.company || "").toLowerCase().includes(rq) ||
+        (r.jobUrl  || "").toLowerCase().includes(rq) ||
+        (r.details || "").toLowerCase().includes(rq)
+    );
+  }
 
   const countEl = document.getElementById("resolvedCount");
   if (countEl) {
@@ -1040,7 +1051,7 @@ function renderResolvedRequests() {
 
   const emptyMsg = currentRole === "seeker"
     ? "✨ None of your requests are resolved yet."
-    : "✨ No resolved requests yet.";
+    : (rq ? `🔍 No results for "${escapeHtml(rq)}".` : "✨ No resolved requests yet.");
 
   if (source.length === 0) {
     list.innerHTML = `<div class="hc-empty">${emptyMsg}</div>`;
@@ -1103,6 +1114,11 @@ function renderResolvedRequests() {
 function onSearch(value) {
   searchQuery = value.trim();
   renderOpenRequests();
+}
+
+function onResolvedSearch(value) {
+  resolvedSearchQuery = value.trim();
+  renderResolvedRequests();
 }
 
 // ── Init ──────────────────────────────────────────────────────
