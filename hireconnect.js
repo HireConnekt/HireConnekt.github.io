@@ -843,10 +843,10 @@ function buildRequestRow(req) {
           onclick="event.stopPropagation()"
           title="${escapeHtml(req.jobUrl)}"
         >${label}</a>
+        ${req.submittedAt ? `<span class="hc-date-tag">📅 ${fmtDate(req.submittedAt)}</span>` : ""}
         ${company ? `<span class="hc-company-badge">${company}</span>` : ""}
         ${details ? `<span class="hc-details-preview">${details}</span>` : ""}
         ${seekerName ? `<span class="hc-seeker-name">👤 ${seekerName}</span>` : ""}
-        ${req.submittedAt ? `<span class="hc-date-tag">📅 ${fmtDate(req.submittedAt)}</span>` : ""}
       </div>
       ${currentRole === "connector" && !isConnectorApproved
         ? `<span class="hc-pending-badge">⏳ Pending Approval</span>`
@@ -1083,10 +1083,10 @@ function renderResolvedRequests() {
             onclick="event.stopPropagation()"
             title="${escapeHtml(req.jobUrl)}"
           >${label}</a>
+          ${req.resolvedAt ? `<span class="hc-date-tag">✅ ${fmtDate(req.resolvedAt)}</span>` : ""}
           ${company ? `<span class="hc-company-badge">${company}</span>` : ""}
           ${details ? `<span class="hc-details-preview">${details}</span>` : ""}
           ${seekerName ? `<span class="hc-seeker-name">👤 ${seekerName}</span>` : ""}
-          ${req.resolvedAt ? `<span class="hc-date-tag">✅ ${fmtDate(req.resolvedAt)}</span>` : ""}
         </div>
         <span class="hc-thanks-badge">${thanks}</span>
         ${isHcAdmin ? `<button class="hc-delete-btn" title="Delete posting" onclick="event.stopPropagation(); deleteRequest('${id}')">🗑</button>` : ""}
