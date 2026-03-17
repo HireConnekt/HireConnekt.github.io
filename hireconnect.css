@@ -498,6 +498,12 @@ body {
   max-width: 180px;
 }
 
+.hc-date-tag {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .hc-seeker-name {
   color: var(--muted);
   font-size: 12px;

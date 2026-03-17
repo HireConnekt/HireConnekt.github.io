@@ -53,6 +53,15 @@ function truncateUrl(url) {
   }
 }
 
+function fmtDate(ts) {
+  if (!ts) return "";
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const now = new Date();
+  const opts = { month: "short", day: "numeric" };
+  if (d.getFullYear() !== now.getFullYear()) opts.year = "numeric";
+  return d.toLocaleDateString(undefined, opts);
+}
+
 function showFeedback(msg, type) {
   const el = document.getElementById("submitFeedback");
   if (!el) return;
@@ -837,6 +846,7 @@ function buildRequestRow(req) {
         ${company ? `<span class="hc-company-badge">${company}</span>` : ""}
         ${details ? `<span class="hc-details-preview">${details}</span>` : ""}
         ${seekerName ? `<span class="hc-seeker-name">👤 ${seekerName}</span>` : ""}
+        ${req.submittedAt ? `<span class="hc-date-tag">📅 ${fmtDate(req.submittedAt)}</span>` : ""}
       </div>
       ${currentRole === "connector" && !isConnectorApproved
         ? `<span class="hc-pending-badge">⏳ Pending Approval</span>`
@@ -1076,6 +1086,7 @@ function renderResolvedRequests() {
           ${company ? `<span class="hc-company-badge">${company}</span>` : ""}
           ${details ? `<span class="hc-details-preview">${details}</span>` : ""}
           ${seekerName ? `<span class="hc-seeker-name">👤 ${seekerName}</span>` : ""}
+          ${req.resolvedAt ? `<span class="hc-date-tag">✅ ${fmtDate(req.resolvedAt)}</span>` : ""}
         </div>
         <span class="hc-thanks-badge">${thanks}</span>
         ${isHcAdmin ? `<button class="hc-delete-btn" title="Delete posting" onclick="event.stopPropagation(); deleteRequest('${id}')">🗑</button>` : ""}
