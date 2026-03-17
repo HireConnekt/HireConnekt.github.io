@@ -1006,7 +1006,7 @@ function renderResolvedRequests() {
     const details    = escapeHtml(req.details  || "");
     const resolverName    = req.resolvedBy ? escapeHtml(req.resolvedBy) : "Anonymous";
     const resolverLi      = req.resolverLinkedinUrl ? safeUrl(req.resolverLinkedinUrl) : null;
-    const resolverDisplay = resolverLi && resolverLi !== "#"
+    const resolverDisplay = resolverLi && resolverLi !== "#" && req.resolvedBy
       ? `<a href="${resolverLi}" target="_blank" rel="noopener noreferrer" class="hc-thanks-link">${resolverName}</a>`
       : resolverName;
     const thanks = `Thanks ${resolverDisplay}!`;
