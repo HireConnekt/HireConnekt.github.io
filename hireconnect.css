@@ -206,10 +206,10 @@ body {
 .hc-hero-card-badge {
   display: inline-block;
   margin-top: 8px;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 600;
   border-radius: 20px;
-  padding: 2px 9px;
+  padding: 3px 10px;
 }
 .hc-hero-card--seeker .hc-hero-card-badge { background: #eff6ff; color: var(--active); }
 .hc-hero-card--helper .hc-hero-card-badge { background: #f5f3ff; color: var(--p0); }

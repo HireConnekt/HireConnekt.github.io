@@ -314,8 +314,7 @@ function renderAuthBadge() {
     const roleBadge = currentRole
       ? `<span class="hc-role-badge hc-role-badge--${currentRole}">
            ${currentRole === "seeker" ? "🎯 Seeker" : "🤝 Connector"}
-         </span>
-         <button class="hc-role-switch-btn" onclick="switchRole()">Switch</button>`
+         </span>`
       : "";
     const adminLink = isHcAdmin
       ? `<a href="admin.html" class="hc-admin-link">⚙ Admin</a>`
