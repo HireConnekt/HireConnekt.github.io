@@ -188,7 +188,31 @@ body {
   border-radius: var(--radius);
   padding: 16px 18px;
   box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  position: relative;
 }
+.hc-hero-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.hc-hero-card--seeker:hover { border-color: var(--active); }
+.hc-hero-card--helper:hover { border-color: var(--p0); }
+
+.hc-hero-card--active-role {
+  box-shadow: 0 0 0 2px currentColor, var(--shadow-sm);
+}
+.hc-hero-card--seeker.hc-hero-card--active-role  { box-shadow: 0 0 0 2px var(--active), var(--shadow-sm); }
+.hc-hero-card--helper.hc-hero-card--active-role  { box-shadow: 0 0 0 2px var(--p0), var(--shadow-sm); }
+.hc-hero-card--active-role:hover                 { transform: none; cursor: default; }
+
+.hc-hero-card-badge {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 20px;
+  padding: 2px 9px;
+}
+.hc-hero-card--seeker .hc-hero-card-badge { background: #eff6ff; color: var(--active); }
+.hc-hero-card--helper .hc-hero-card-badge { background: #f5f3ff; color: var(--p0); }
 
 .hc-hero-card--seeker { border-left: 4px solid var(--active); }
 .hc-hero-card--helper { border-left: 4px solid var(--p0); }

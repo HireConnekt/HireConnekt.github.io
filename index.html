@@ -39,18 +39,20 @@
       <span class="hc-hero-sub">InsideHire.fyi helps you identify the hiring manager behind a job posting. Powered by a trusted community.</span>
     </p>
     <div class="hc-hero-cards">
-      <div class="hc-hero-card hc-hero-card--seeker">
+      <div class="hc-hero-card hc-hero-card--seeker" id="heroCardSeeker" onclick="switchToRole('seeker')" onkeydown="if(event.key==='Enter'||event.key===' ')switchToRole('seeker')" role="button" tabindex="0" aria-label="Switch to Job Seeker role">
         <span class="hc-hero-card-icon">🎯</span>
         <div>
           <strong>Job Seekers</strong>
           <p>Sign in and submit a job posting - optionally <b>anonymously</b>. InsideHire.fyi helps identify the hiring manager behind a job posting, enabling you to reach out directly through LinkedIn messages or shared connections.</p>
+          <span class="hc-hero-card-badge" id="heroCardSeekerBadge"></span>
         </div>
       </div>
-      <div class="hc-hero-card hc-hero-card--helper">
+      <div class="hc-hero-card hc-hero-card--helper" id="heroCardConnector" onclick="switchToRole('connector')" onkeydown="if(event.key==='Enter'||event.key===' ')switchToRole('connector')" role="button" tabindex="0" aria-label="Switch to Connector role">
         <span class="hc-hero-card-icon">🤝</span>
         <div>
           <strong>Connectors</strong>
           <p>Work at the company? <b>Anonymously</b> share hiring manager info or offer a referral. A few seconds of your time can change someone's career trajectory. <small>Company affiliation may be verified.</small></p>
+          <span class="hc-hero-card-badge" id="heroCardConnectorBadge"></span>
         </div>
       </div>
     </div>

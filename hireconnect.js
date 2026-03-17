@@ -90,12 +90,53 @@ function saveRole(role) {
   renderOpenRequests();
   renderResolvedRequests();
   renderCompanySidebar();
+  updateHeroCards();
 }
 
 function switchRole() {
   currentRole = null;
   localStorage.removeItem(roleKey());
   document.getElementById("rolePickerModal").style.display = "flex";
+}
+
+function switchToRole(role) {
+  if (!currentUser) { signIn(); return; }
+  if (currentRole === role) return;
+  if (role === "seeker") {
+    saveRole("seeker");
+  } else if (role === "connector") {
+    currentRole = null;
+    localStorage.removeItem(roleKey());
+    document.getElementById("rolePickerModal").style.display = "flex";
+    // Reset to step 1 so showConnectorCompanyStep is triggered via the modal's connector button
+    document.getElementById("roleStep1").style.display = "";
+    document.getElementById("roleStep2").style.display = "none";
+    // Auto-advance into connector flow
+    showConnectorCompanyStep();
+  }
+  updateHeroCards();
+}
+
+function updateHeroCards() {
+  const seekerCard     = document.getElementById("heroCardSeeker");
+  const connectorCard  = document.getElementById("heroCardConnector");
+  const seekerBadge    = document.getElementById("heroCardSeekerBadge");
+  const connectorBadge = document.getElementById("heroCardConnectorBadge");
+  if (!seekerCard) return;
+
+  seekerCard.classList.toggle("hc-hero-card--active-role",    currentRole === "seeker");
+  connectorCard.classList.toggle("hc-hero-card--active-role", currentRole === "connector");
+
+  if (currentRole === "seeker") {
+    seekerBadge.textContent    = "✓ Your current role";
+    connectorBadge.textContent = "Switch to Connector →";
+  } else if (currentRole === "connector") {
+    seekerBadge.textContent    = "Switch to Seeker →";
+    connectorBadge.textContent = "✓ Your current role";
+  } else {
+    seekerBadge.textContent    = "Get started as a Seeker →";
+    connectorBadge.textContent = "Get started as a Connector →";
+  }
 }
 
 function showRolePicker() {
@@ -1090,5 +1131,6 @@ document.addEventListener("DOMContentLoaded", () => {
     renderOpenRequests();
     renderResolvedRequests();
     renderCompanySidebar();
+    updateHeroCards();
   });
 });
