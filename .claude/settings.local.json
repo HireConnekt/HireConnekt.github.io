@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check /Users/juchemp/playground/hireconnekt/hireconnect.js)"
+    ]
+  }
+}

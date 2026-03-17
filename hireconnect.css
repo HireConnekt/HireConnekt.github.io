@@ -762,6 +762,11 @@ body {
   display: flex;
   align-items: center;
 }
+.hc-panel-header .hc-resolved-header {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
 
 .hc-resolved-item {
   opacity: 0.82;

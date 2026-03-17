@@ -1116,14 +1116,17 @@ function onSearch(value) {
   renderOpenRequests();
 }
 
-function onResolvedSearch(value) {
-  resolvedSearchQuery = value.trim();
-  renderResolvedRequests();
-}
 
 // ── Init ──────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Resolved search box
+  const resolvedBox = document.getElementById("resolvedSearchBox");
+  if (resolvedBox) {
+    resolvedBox.addEventListener("input",  () => { resolvedSearchQuery = resolvedBox.value.trim(); renderResolvedRequests(); });
+    resolvedBox.addEventListener("search", () => { resolvedSearchQuery = resolvedBox.value.trim(); renderResolvedRequests(); });
+  }
+
   // Start real-time listeners (reads are public, no auth required)
   subscribeOpen();
   subscribeResolved();
