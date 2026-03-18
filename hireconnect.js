@@ -1109,6 +1109,42 @@ function renderResolvedRequests() {
   });
 }
 
+// ── Feedback modal ───────────────────────────────────────────
+
+function openFeedbackModal() {
+  const modal = document.getElementById("feedbackModal");
+  if (!modal) return;
+  document.getElementById("feedbackText").value  = "";
+  document.getElementById("feedbackEmail").value = "";
+  document.getElementById("feedbackError").style.display = "none";
+  modal.style.display = "flex";
+  setTimeout(() => document.getElementById("feedbackText").focus(), 50);
+}
+
+function closeFeedbackModal() {
+  const modal = document.getElementById("feedbackModal");
+  if (modal) modal.style.display = "none";
+}
+
+function submitFeedback() {
+  const text  = document.getElementById("feedbackText").value.trim();
+  const email = document.getElementById("feedbackEmail").value.trim();
+  const errEl = document.getElementById("feedbackError");
+
+  if (!text) {
+    errEl.textContent = "Please enter your feedback before sending.";
+    errEl.style.display = "";
+    return;
+  }
+
+  const subject = encodeURIComponent("InsideHire.fyi Feedback");
+  const body    = encodeURIComponent(
+    (email ? `From: ${email}\n\n` : "") + text
+  );
+  window.location.href = `mailto:siliconvalleysprouts@gmail.com?subject=${subject}&body=${body}`;
+  closeFeedbackModal();
+}
+
 // ── Search ────────────────────────────────────────────────────
 
 function onSearch(value) {

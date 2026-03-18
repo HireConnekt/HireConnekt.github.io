@@ -181,8 +181,40 @@
     <span class="hc-footer-tagline">Community-powered hiring connections</span>
     <span class="hc-footer-sep">·</span>
     <a href="mailto:siliconvalleysprouts@gmail.com" class="hc-footer-link">siliconvalleysprouts@gmail.com</a>
+    <span class="hc-footer-sep">·</span>
+    <button class="hc-footer-feedback-btn" onclick="openFeedbackModal()">💬 Feedback</button>
   </div>
 </footer>
+
+<!-- FEEDBACK MODAL -->
+<div id="feedbackModal" class="hc-role-modal" style="display:none" onclick="if(event.target===this)closeFeedbackModal()">
+  <div class="hc-feedback-modal-inner">
+    <button class="hc-feedback-close-btn" onclick="closeFeedbackModal()" aria-label="Close">✕</button>
+    <h2 class="hc-role-modal-title">Share your feedback</h2>
+    <p class="hc-role-modal-sub">We read every message. Help us make InsideHire.fyi better.</p>
+    <div class="hc-feedback-form">
+      <textarea
+        id="feedbackText"
+        class="hc-feedback-textarea"
+        placeholder="What's on your mind? Bug reports, feature ideas, or anything else…"
+        rows="5"
+        maxlength="2000"
+      ></textarea>
+      <input
+        id="feedbackEmail"
+        type="email"
+        class="hc-feedback-email"
+        placeholder="Your email (optional — for follow-up)"
+        autocomplete="email"
+      />
+      <div id="feedbackError" class="hc-feedback-error" style="display:none"></div>
+      <div class="hc-feedback-actions">
+        <button class="hc-cancel-btn" onclick="closeFeedbackModal()">Cancel</button>
+        <button class="hc-submit-btn" onclick="submitFeedback()">Send Feedback</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Firebase config -->
 <script src="firebase-config.js"></script>
