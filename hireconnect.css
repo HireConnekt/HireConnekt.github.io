@@ -990,9 +990,10 @@ body {
 }
 .hc-admin-section h2 { font-size: 1.1rem; margin-bottom: 14px; }
 .hc-admin-table-wrap {
-  border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+  border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
-.hc-admin-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.hc-admin-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 0.85rem; }
 .hc-admin-table th {
   background: #f8fafc; padding: 10px 14px; text-align: left;
   font-weight: 600; font-size: 0.75rem; text-transform: uppercase;
