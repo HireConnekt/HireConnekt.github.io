@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>InsideHire.fyi — One-Time Migration</title>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+  <link rel="stylesheet" href="hireconnect.css" />
+  <style>
+    body { max-width: 680px; margin: 40px auto; padding: 0 20px; }
+    h1   { margin-bottom: 6px; }
+    .step   { background:#fff; border:1px solid var(--border); border-radius:12px; padding:20px; margin:16px 0; }
+    .step h3 { margin:0 0 10px; font-size:1rem; }
+    .log    { background:#f8fafc; border:1px solid var(--border); border-radius:8px;
+               padding:12px; font-size:0.8rem; font-family:monospace; max-height:260px;
+               overflow-y:auto; white-space:pre-wrap; margin-top:12px; }
+    .ok  { color: #15803d; }
+    .err { color: #b91c1c; }
+    .warn { color: #92400e; }
+    input[type=text] { width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid var(--border);
+                       border-radius:8px; font-size:14px; margin-top:6px; font-family:inherit; }
+    label { font-size:13px; font-weight:600; color:var(--muted); }
+    .hc-submit-btn { margin-top:12px; }
+    #signInArea { text-align:center; padding:30px; }
+  </style>
+</head>
+<body>
+<header class="hc-topbar" style="position:static;margin-bottom:28px">
+  <a href="index.html" class="hc-back-link">← InsideHire.fyi</a>
+  <h1 class="hc-title" style="font-size:1.1rem">One-Time Migration</h1>
+</header>
+
+<div id="signInArea" style="display:none">
+  <p style="color:var(--muted);margin-bottom:16px">You must be a site admin to run the migration.</p>
+  <button class="hc-submit-btn" onclick="doSignIn()">Sign in with Google</button>
+</div>
+
+<div id="migrationArea" style="display:none">
+
+  <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:0.88rem;color:#92400e">
+    <strong>Run this page only once.</strong> It creates a default group for your existing St. Thomas Syro Malabar Church data,
+    backfills <code>groupId</code> on all existing requests, creates new connector docs in the
+    <code>{uid}_{groupId}</code> format, and creates membership records for all known users.
+    Existing data is not deleted. Safe to re-run — duplicate writes are idempotent.
+  </div>
+
+  <div class="step">
+    <h3>Step 1 — Default Group Name</h3>
+    <label>Enter the name for the default (existing) group:</label>
+    <input id="defaultGroupName" type="text" value="St. Thomas Syro Malabar Church Community" />
+    <label style="margin-top:10px;display:block">Short description (optional):</label>
+    <input id="defaultGroupDesc" type="text" value="Original InsideHire.fyi community" />
+  </div>
+
+  <div class="step">
+    <h3>Step 2 — Run Migration</h3>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:10px">
+      This will create the group, backfill all existing Firestore documents, and print a log below.
+    </p>
+    <button id="runBtn" class="hc-submit-btn" onclick="runMigration()">Run Migration</button>
+    <div id="migrationLog" class="log" style="display:none"></div>
+  </div>
+
+</div>
+
+<script src="firebase-config.js"></script>
+<script>
+let adminUser = null;
+let logEl     = null;
+
+function log(msg, cls) {
+  if (!logEl) return;
+  const line = document.createElement("div");
+  line.className = cls || "";
+  line.textContent = msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function doSignIn() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch((e) => alert("Sign-in failed: " + e.message));
+}
+
+auth.onAuthStateChanged(async (user) => {
+  if (!user) {
+    document.getElementById("signInArea").style.display = "";
+    document.getElementById("migrationArea").style.display = "none";
+    return;
+  }
+
+  // Verify site admin
+  const snap = await db.collection("hireconnect_config").doc("admins").get();
+  const emails = snap.exists ? (snap.data().emails || []) : [];
+  const isAdmin = emails.map(e => e.toLowerCase()).includes((user.email || "").toLowerCase());
+
+  if (!isAdmin) {
+    document.getElementById("signInArea").innerHTML =
+      `<p style="color:#b91c1c;font-weight:600">Access denied — site admin only.</p>
+       <button class="hc-cancel-btn" onclick="auth.signOut()">Sign Out</button>`;
+    document.getElementById("signInArea").style.display = "";
+    document.getElementById("migrationArea").style.display = "none";
+    return;
+  }
+
+  adminUser = user;
+  document.getElementById("signInArea").style.display = "none";
+  document.getElementById("migrationArea").style.display = "";
+});
+
+async function runMigration() {
+  const btn      = document.getElementById("runBtn");
+  logEl          = document.getElementById("migrationLog");
+  logEl.innerHTML = "";
+  logEl.style.display = "";
+  btn.disabled   = true;
+  btn.textContent = "Running…";
+
+  const groupName = (document.getElementById("defaultGroupName").value || "").trim();
+  const groupDesc = (document.getElementById("defaultGroupDesc").value || "").trim();
+
+  if (!groupName) { alert("Please enter a group name."); btn.disabled = false; btn.textContent = "Run Migration"; return; }
+
+  try {
+    // ── 0. Permissions smoke-test ─────────────────────────────
+    log("─── Step 0: Testing write permissions ───");
+    try {
+      const testRef = db.collection("hireconnect_groups").doc("__permission_test__");
+      await testRef.set({ _test: true });
+      await testRef.delete();
+      log("  ✓ hireconnect_groups: write OK", "ok");
+    } catch (e) {
+      log(`  ❌ hireconnect_groups write FAILED: ${e.message}`, "err");
+      log("  → Fix: add Firestore rules for hireconnect_groups (see instructions above)", "warn");
+      throw e;
+    }
+    try {
+      const testRef = db.collection("hireconnect_memberships").doc("__permission_test__");
+      await testRef.set({ _test: true });
+      await testRef.delete();
+      log("  ✓ hireconnect_memberships: write OK", "ok");
+    } catch (e) {
+      log(`  ❌ hireconnect_memberships write FAILED: ${e.message}`, "err");
+      log("  → Fix: add Firestore rules for hireconnect_memberships (see instructions above)", "warn");
+      throw e;
+    }
+
+    // ── 1. Create or find the default group ──────────────────
+    log("─── Step 1: Create default group ───");
+    let groupId = null;
+
+    const existingGroup = await db.collection("hireconnect_groups")
+      .where("name", "==", groupName).limit(1).get();
+
+    if (!existingGroup.empty) {
+      groupId = existingGroup.docs[0].id;
+      log(`  ✓ Group already exists: ${groupId}`, "ok");
+    } else {
+      const randomCode = (len = 10) => {
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+        let s = "";
+        for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
+        return s;
+      };
+      const ref = await db.collection("hireconnect_groups").add({
+        name:          groupName,
+        description:   groupDesc,
+        createdBy:     adminUser.uid,
+        createdAt:     firebase.firestore.FieldValue.serverTimestamp(),
+        inviteCode:    randomCode(),
+        isActive:      true,
+        memberCount:   0,
+        requestCount:  0,
+        resolvedCount: 0,
+      });
+      groupId = ref.id;
+      log(`  ✓ Created group: ${groupId}`, "ok");
+    }
+
+    // ── 2. Backfill groupId on all requests ──────────────────
+    log("─── Step 2: Backfill hireconnect_requests ───");
+    const requests = await db.collection("hireconnect_requests").get();
+    let reqUpdated = 0, reqSkipped = 0;
+
+    const reqBatches = [];
+    let batch = db.batch();
+    let batchCount = 0;
+
+    requests.docs.forEach((doc) => {
+      if (doc.data().groupId) { reqSkipped++; return; }
+      batch.update(doc.ref, { groupId });
+      batchCount++;
+      reqUpdated++;
+      if (batchCount === 490) {
+        reqBatches.push(batch);
+        batch = db.batch();
+        batchCount = 0;
+      }
+    });
+    if (batchCount > 0) reqBatches.push(batch);
+
+    for (const b of reqBatches) await b.commit();
+    log(`  ✓ Updated ${reqUpdated} requests, skipped ${reqSkipped} (already had groupId)`, "ok");
+
+    // ── 3. Migrate connector docs to {uid}_{groupId} format ──
+    log("─── Step 3: Migrate hireconnect_connectors ───");
+    const oldConnectors = await db.collection("hireconnect_connectors").get();
+    let connCreated = 0, connSkipped = 0;
+    const memberUids = new Set();
+
+    for (const doc of oldConnectors.docs) {
+      const data = doc.data();
+      // If doc ID looks like "{uid}_{groupId}" already, skip
+      if (doc.id.includes("_") && data.groupId) { connSkipped++; memberUids.add(data.uid); continue; }
+
+      const uid       = data.uid || doc.id;
+      const newDocId  = `${uid}_${groupId}`;
+      const newRef    = db.collection("hireconnect_connectors").doc(newDocId);
+      const existing  = await newRef.get();
+
+      if (!existing.exists) {
+        await newRef.set({ ...data, uid, groupId, approved: data.approved || false });
+        connCreated++;
+        log(`  ✓ Migrated connector: ${uid.slice(-6)} → ${newDocId}`, "ok");
+      } else {
+        log(`  – Connector doc already exists: ${newDocId}`, "warn");
+        connSkipped++;
+      }
+      memberUids.add(uid);
+    }
+    log(`  ✓ Created ${connCreated} new connector docs, skipped ${connSkipped}`, "ok");
+
+    // ── 4. Collect all known user UIDs from requests ─────────
+    log("─── Step 4: Collect user UIDs from requests ───");
+    requests.docs.forEach((doc) => {
+      const d = doc.data();
+      if (d.submittedByUid) memberUids.add(d.submittedByUid);
+      if (d.resolvedByUid)  memberUids.add(d.resolvedByUid);
+    });
+    log(`  ✓ Found ${memberUids.size} unique UIDs`, "ok");
+
+    // ── 5. Create membership docs for all known users ─────────
+    log("─── Step 5: Create hireconnect_memberships ───");
+    let memCreated = 0, memSkipped = 0;
+
+    for (const uid of memberUids) {
+      const memberDocId = `${uid}_${groupId}`;
+      const memRef      = db.collection("hireconnect_memberships").doc(memberDocId);
+      const existing    = await memRef.get();
+      if (existing.exists) { memSkipped++; continue; }
+
+      await memRef.set({
+        uid,
+        groupId,
+        groupName,
+        role:       "member",
+        joinedAt:   firebase.firestore.FieldValue.serverTimestamp(),
+        joinMethod: "migration",
+      });
+      memCreated++;
+    }
+    log(`  ✓ Created ${memCreated} membership docs, skipped ${memSkipped} (already existed)`, "ok");
+
+    // ── 6. Update group memberCount ───────────────────────────
+    log("─── Step 6: Update group memberCount ───");
+    const totalMembers = await db.collection("hireconnect_memberships")
+      .where("groupId", "==", groupId).get();
+    await db.collection("hireconnect_groups").doc(groupId).update({
+      memberCount:  totalMembers.size,
+      requestCount: requests.size,
+    });
+    log(`  ✓ Group memberCount → ${totalMembers.size}`, "ok");
+
+    log("─────────────────────────────────────────────");
+    log("✅ Migration complete! You can now delete this file.", "ok");
+    log(`   Default group ID: ${groupId}`, "ok");
+
+  } catch (err) {
+    log(`❌ Migration stopped: ${err.message}`, "err");
+    log("  Check the Firebase Console → Firestore → Rules and ensure authenticated users can write to all hireconnect_* collections.", "warn");
+    console.error(err);
+  }
+
+  btn.disabled    = false;
+  btn.textContent = "Run Migration Again";
+}
+</script>
+</body>
+</html>

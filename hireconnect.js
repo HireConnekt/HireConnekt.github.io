@@ -22,6 +22,14 @@ let isConnectorApproved = false; // derived from connectorProfile.approved
 let unsubscribeConnectorProfile = null;
 let connectorCompanies = [];     // unique approved connector company names
 
+// ── Group State ───────────────────────────────────────────────
+let currentGroupId      = null;   // Firestore doc ID of the active group
+let currentGroupProfile = null;   // { id, name, inviteCode, isActive, ... }
+let userGroups          = [];     // [{ groupId, name, role, membershipId }]
+let isGroupAdmin        = false;  // current user has role="admin" in currentGroup
+let unsubscribeGroupProfile  = null;
+let unsubscribeMemberships   = null;
+
 // ── Utilities ────────────────────────────────────────────────
 
 function escapeHtml(str) {
@@ -73,6 +81,271 @@ function showFeedback(msg, type) {
 const showError   = (msg) => showFeedback(msg, "error");
 const showSuccess = (msg) => showFeedback(msg, "success");
 
+// ── Group Utilities ───────────────────────────────────────────
+
+function randomCode(len = 10) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let s = "";
+  for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+// ── Group: memberships real-time listener ─────────────────────
+
+function subscribeMemberships() {
+  if (unsubscribeMemberships) { unsubscribeMemberships(); unsubscribeMemberships = null; }
+  if (!currentUser) return;
+
+  unsubscribeMemberships = db.collection("hireconnect_memberships")
+    .where("uid", "==", currentUser.uid)
+    .onSnapshot(async (snap) => {
+      userGroups = snap.docs.map((d) => ({ membershipId: d.id, ...d.data() }));
+
+      // Update group admin status for currently-selected group
+      isGroupAdmin = currentGroupId
+        ? userGroups.some((g) => g.groupId === currentGroupId && g.role === "admin")
+        : false;
+
+      if (userGroups.length === 0) {
+        // No groups — show onboarding unless user just created one (currentGroupId set)
+        if (!currentGroupId) showOnboarding();
+      } else if (!currentGroupId) {
+        // First load: auto-select saved group or the only group
+        const savedId = localStorage.getItem(groupKey());
+        const valid   = userGroups.find((g) => g.groupId === savedId);
+        if (valid) {
+          await selectGroup(savedId);
+        } else if (userGroups.length === 1) {
+          await selectGroup(userGroups[0].groupId);
+        } else {
+          showGroupSwitcher();
+        }
+      }
+      renderGroupArea();
+      renderAuthBadge();
+    }, () => {});
+}
+
+// ── Group: subscribe to group profile ────────────────────────
+
+function subscribeGroupProfile(groupId) {
+  if (unsubscribeGroupProfile) { unsubscribeGroupProfile(); unsubscribeGroupProfile = null; }
+  if (!groupId) return;
+
+  unsubscribeGroupProfile = db.collection("hireconnect_groups").doc(groupId)
+    .onSnapshot((snap) => {
+      if (snap.exists) {
+        currentGroupProfile = { id: snap.id, ...snap.data() };
+      } else {
+        currentGroupProfile = null;
+      }
+      renderGroupArea();
+    }, () => {});
+}
+
+// ── Group: select active group ────────────────────────────────
+
+async function selectGroup(groupId) {
+  currentGroupId = groupId;
+  if (groupKey()) localStorage.setItem(groupKey(), groupId);
+  isGroupAdmin = userGroups.some((g) => g.groupId === groupId && g.role === "admin");
+
+  subscribeGroupProfile(groupId);
+  subscribeOpen();
+  subscribeResolved();
+
+  loadRole();
+  if (!currentRole) {
+    showRolePicker();
+  } else if (currentRole === "connector") {
+    subscribeConnectorProfile();
+    loadConnectorCompanies();
+  } else if (currentRole === "seeker") {
+    loadConnectorCompanies();
+  }
+
+  renderGroupArea();
+  renderAuthBadge();
+  renderSubmitArea();
+  renderOpenRequests();
+  renderResolvedRequests();
+  renderCompanySidebar();
+  updateHeroCards();
+}
+
+// ── Group: create a new group ─────────────────────────────────
+
+async function createGroup(name, description) {
+  if (!currentUser) return null;
+  name = (name || "").trim();
+  if (!name) return null;
+
+  const inviteCode = randomCode(10);
+  const groupRef = await db.collection("hireconnect_groups").add({
+    name,
+    description:  (description || "").trim(),
+    createdBy:    currentUser.uid,
+    createdAt:    firebase.firestore.FieldValue.serverTimestamp(),
+    inviteCode,
+    isActive:     true,
+    memberCount:  1,
+    requestCount: 0,
+    resolvedCount: 0,
+  });
+
+  // Creator becomes the first admin member
+  await db.collection("hireconnect_memberships")
+    .doc(`${currentUser.uid}_${groupRef.id}`)
+    .set({
+      uid:        currentUser.uid,
+      groupId:    groupRef.id,
+      groupName:  name,
+      role:       "admin",
+      joinedAt:   firebase.firestore.FieldValue.serverTimestamp(),
+      joinMethod: "created",
+    });
+
+  return groupRef.id;
+}
+
+// ── Group: join via invite code ───────────────────────────────
+
+async function processInviteCode(code) {
+  if (!code || !currentUser) return;
+  try {
+    const snap = await db.collection("hireconnect_groups")
+      .where("inviteCode", "==", code)
+      .where("isActive", "==", true)
+      .limit(1)
+      .get();
+
+    if (snap.empty) {
+      showInviteError("This invite link is not valid or has been deactivated.");
+      return;
+    }
+
+    const groupDoc   = snap.docs[0];
+    const groupId    = groupDoc.id;
+    const groupData  = groupDoc.data();
+    const memberDocId = `${currentUser.uid}_${groupId}`;
+
+    // Check if already a member
+    const existing = await db.collection("hireconnect_memberships").doc(memberDocId).get();
+    if (!existing.exists) {
+      await db.collection("hireconnect_memberships").doc(memberDocId).set({
+        uid:        currentUser.uid,
+        groupId,
+        groupName:  groupData.name,
+        role:       "member",
+        joinedAt:   firebase.firestore.FieldValue.serverTimestamp(),
+        joinMethod: "invite",
+      });
+      // Increment member count
+      db.collection("hireconnect_groups").doc(groupId).update({
+        memberCount: firebase.firestore.FieldValue.increment(1),
+      });
+    }
+    // Clear the invite code from the URL without reloading
+    const url = new URL(window.location.href);
+    url.searchParams.delete("invite");
+    window.history.replaceState({}, "", url.toString());
+  } catch (e) {
+    console.error("Failed to process invite:", e);
+  }
+}
+
+function showInviteError(msg) {
+  const el = document.getElementById("inviteErrorBanner");
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = "";
+  setTimeout(() => { el.style.display = "none"; }, 6000);
+}
+
+// ── Group: regenerate invite code ─────────────────────────────
+
+async function regenerateInviteCode() {
+  if (!currentGroupId || !isGroupAdmin) return;
+  const newCode = randomCode(10);
+  try {
+    await db.collection("hireconnect_groups").doc(currentGroupId).update({ inviteCode: newCode });
+    // currentGroupProfile updates via onSnapshot; re-render settings
+    renderGroupSettingsGeneral();
+  } catch (e) {
+    alert("Failed to regenerate invite code: " + e.message);
+  }
+}
+
+// ── Group: admin management ───────────────────────────────────
+
+async function setMemberRole(uid, groupId, newRole) {
+  if (!isGroupAdmin && !isHcAdmin) return;
+  const memberDocId = `${uid}_${groupId}`;
+  try {
+    await db.collection("hireconnect_memberships").doc(memberDocId).update({ role: newRole });
+    renderGroupMembersTab();
+  } catch (e) {
+    alert("Failed to update role: " + e.message);
+  }
+}
+
+// ── Group: connector approval (group admin) ───────────────────
+
+async function approveConnectorForGroup(docId, currentApproved) {
+  if (!isGroupAdmin && !isHcAdmin) return;
+  try {
+    await db.collection("hireconnect_connectors").doc(docId).update({ approved: !currentApproved });
+  } catch (e) {
+    alert("Failed to update connector: " + e.message);
+  }
+}
+
+// ── Group: render group area (title-group community label) ────
+
+function renderGroupArea() {
+  const labelEl = document.getElementById("groupNameLabel");
+  const adminBtnEl = document.getElementById("groupAdminBtn");
+  if (!labelEl) return;
+
+  if (!currentUser) {
+    labelEl.textContent = "";
+    if (adminBtnEl) adminBtnEl.style.display = "none";
+    return;
+  }
+
+  if (currentGroupProfile) {
+    labelEl.textContent = currentGroupProfile.name;
+    labelEl.style.cursor = userGroups.length > 1 ? "pointer" : "default";
+    labelEl.onclick = userGroups.length > 1 ? showGroupSwitcher : null;
+  } else if (userGroups.length === 0) {
+    labelEl.textContent = "No group selected";
+  } else {
+    labelEl.textContent = "Loading…";
+  }
+
+  if (adminBtnEl) {
+    if (isGroupAdmin && currentGroupId) {
+      adminBtnEl.style.display = "";
+      // Show pending connector count
+      if (currentGroupId) {
+        db.collection("hireconnect_connectors")
+          .where("groupId", "==", currentGroupId)
+          .where("approved", "==", false)
+          .get()
+          .then((snap) => {
+            const count = snap.size;
+            adminBtnEl.textContent = count > 0
+              ? `⚙ Manage Group (${count} pending)`
+              : "⚙ Manage Group";
+          })
+          .catch(() => { adminBtnEl.textContent = "⚙ Manage Group"; });
+      }
+    } else {
+      adminBtnEl.style.display = "none";
+    }
+  }
+}
+
 // ── Auth ─────────────────────────────────────────────────────
 
 function signIn() {
@@ -81,13 +354,32 @@ function signIn() {
 }
 
 function signOut() {
+  // Clean up group state before signing out
+  if (unsubscribeMemberships)        { unsubscribeMemberships();        unsubscribeMemberships        = null; }
+  if (unsubscribeGroupProfile)       { unsubscribeGroupProfile();       unsubscribeGroupProfile       = null; }
+  if (unsubscribeConnectorProfile)   { unsubscribeConnectorProfile();   unsubscribeConnectorProfile   = null; }
+  if (unsubscribeOpen)               { unsubscribeOpen();               unsubscribeOpen               = null; }
+  if (unsubscribeResolved)           { unsubscribeResolved();           unsubscribeResolved           = null; }
+  currentGroupId      = null;
+  currentGroupProfile = null;
+  userGroups          = [];
+  isGroupAdmin        = false;
   auth.signOut().catch((e) => showError("Sign-out failed: " + e.message));
 }
 
 // ── Role ─────────────────────────────────────────────────────
 
-function roleKey()  { return `hc_role_${currentUser.uid}`; }
-function loadRole() { currentRole = localStorage.getItem(roleKey()) || null; }
+function roleKey()  {
+  if (!currentUser) return null;
+  return currentGroupId
+    ? `hc_role_${currentUser.uid}_${currentGroupId}`
+    : `hc_role_${currentUser.uid}`;
+}
+function groupKey() { return currentUser ? `hc_group_${currentUser.uid}` : null; }
+function loadRole() {
+  const key = roleKey();
+  currentRole = key ? (localStorage.getItem(key) || null) : null;
+}
 
 function saveRole(role) {
   currentRole = role;
@@ -161,8 +453,9 @@ function showConnectorCompanyStep() {
   }
 
   // Check Firestore in case connectorProfile hasn't loaded yet
-  if (currentUser) {
-    db.collection("hireconnect_connectors").doc(currentUser.uid).get().then((snap) => {
+  if (currentUser && currentGroupId) {
+    const docId = `${currentUser.uid}_${currentGroupId}`;
+    db.collection("hireconnect_connectors").doc(docId).get().then((snap) => {
       if (snap.exists && snap.data().company) {
         connectorProfile    = snap.data();
         isConnectorApproved = connectorProfile.approved === true;
@@ -208,9 +501,18 @@ async function registerConnector() {
   const btn = document.querySelector("#roleStep2 .hc-submit-btn");
   if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
 
+  if (!currentGroupId) {
+    errEl.textContent = "No group selected. Please join or create a group first.";
+    errEl.style.display = "";
+    if (btn) { btn.disabled = false; btn.textContent = "Continue"; }
+    return;
+  }
+
   try {
-    await db.collection("hireconnect_connectors").doc(currentUser.uid).set({
+    const docId = `${currentUser.uid}_${currentGroupId}`;
+    await db.collection("hireconnect_connectors").doc(docId).set({
       uid:         currentUser.uid,
+      groupId:     currentGroupId,
       email:       currentUser.email || "",
       displayName: currentUser.displayName || "",
       company,
@@ -272,7 +574,8 @@ async function updateConnectorCompany() {
   if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
 
   try {
-    await db.collection("hireconnect_connectors").doc(currentUser.uid).update({ company });
+    const docId = `${currentUser.uid}_${currentGroupId}`;
+    await db.collection("hireconnect_connectors").doc(docId).update({ company });
     // onSnapshot will update connectorProfile; just restore the view
     renderSubmitArea();
   } catch (err) {
@@ -286,11 +589,12 @@ async function updateConnectorCompany() {
 
 function subscribeConnectorProfile() {
   if (unsubscribeConnectorProfile) { unsubscribeConnectorProfile(); unsubscribeConnectorProfile = null; }
-  if (!currentUser || currentRole !== "connector") return;
+  if (!currentUser || currentRole !== "connector" || !currentGroupId) return;
 
+  const docId = `${currentUser.uid}_${currentGroupId}`;
   unsubscribeConnectorProfile = db
     .collection("hireconnect_connectors")
-    .doc(currentUser.uid)
+    .doc(docId)
     .onSnapshot((snap) => {
       if (snap.exists) {
         connectorProfile    = snap.data();
@@ -326,12 +630,20 @@ function renderAuthBadge() {
            ${currentRole === "seeker" ? "🎯 Seeker" : "🤝 Connector"}
          </span>`
       : "";
-    const adminLink = isHcAdmin
-      ? `<a href="admin.html" class="hc-admin-link">⚙ Admin</a>`
+    const siteAdminLink = isHcAdmin
+      ? `<a href="admin.html" class="hc-admin-link">⚙ Site Admin</a>`
       : "";
+    const switchGroupBtn = userGroups.length > 1
+      ? `<button class="hc-switch-group-btn" onclick="showGroupSwitcher()" title="Switch group">⇄ Groups</button>`
+      : "";
+    const joinGroupBtn = currentUser
+      ? `<button class="hc-switch-group-btn" onclick="showGroupSwitcher()" title="Manage groups">＋ Join/Create</button>`
+      : "";
+    const groupBtns = userGroups.length > 1 ? switchGroupBtn : (userGroups.length > 0 ? joinGroupBtn : "");
     area.innerHTML = `
       ${roleBadge}
-      ${adminLink}
+      ${siteAdminLink}
+      ${groupBtns}
       <span class="hc-auth-name" title="${name}">${name}</span>
       <button class="hc-signout-btn" onclick="signOut()">Sign Out</button>
     `;
@@ -345,10 +657,12 @@ function renderAuthBadge() {
 // ── Firestore Subscriptions ───────────────────────────────────
 
 function subscribeOpen() {
-  if (unsubscribeOpen) unsubscribeOpen();
+  if (unsubscribeOpen) { unsubscribeOpen(); unsubscribeOpen = null; }
+  if (!currentGroupId) return;
 
   unsubscribeOpen = db
     .collection("hireconnect_requests")
+    .where("groupId", "==", currentGroupId)
     .where("status", "==", "open")
     .orderBy("submittedAt", "desc")
     .onSnapshot(
@@ -366,10 +680,12 @@ function subscribeOpen() {
 }
 
 function subscribeResolved() {
-  if (unsubscribeResolved) unsubscribeResolved();
+  if (unsubscribeResolved) { unsubscribeResolved(); unsubscribeResolved = null; }
+  if (!currentGroupId) return;
 
   unsubscribeResolved = db
     .collection("hireconnect_requests")
+    .where("groupId", "==", currentGroupId)
     .where("status", "==", "resolved")
     .orderBy("resolvedAt", "desc")
     .limit(50)
@@ -418,7 +734,9 @@ async function deleteRequest(id) {
 // ── Connector companies loader ────────────────────────────────
 
 function loadConnectorCompanies() {
+  if (!currentGroupId) return;
   db.collection("hireconnect_connectors")
+    .where("groupId", "==", currentGroupId)
     .where("approved", "==", true)
     .get()
     .then((snap) => {
@@ -533,6 +851,7 @@ function renderSubmitArea() {
 
 async function submitRequest() {
   if (!currentUser) return showError("Please sign in to submit a request.");
+  if (!currentGroupId) return showError("Please join or create a group first.");
 
   const jobUrlEl   = document.getElementById("jobUrlInput");
   const companyEl  = document.getElementById("companyInput");
@@ -563,6 +882,7 @@ async function submitRequest() {
       jobUrl,
       company,
       details,
+      groupId:         currentGroupId,
       status:          "open",
       submittedAt:     firebase.firestore.FieldValue.serverTimestamp(),
       submittedBy:     stayAnonymous ? "" : (currentUser.displayName || currentUser.email || ""),
@@ -1109,6 +1429,371 @@ function renderResolvedRequests() {
   });
 }
 
+// ── Group: onboarding modal (no groups yet) ───────────────────
+
+function showOnboarding() {
+  // Hide role picker if it's showing
+  document.getElementById("rolePickerModal").style.display = "none";
+  document.getElementById("groupOnboardingModal").style.display = "flex";
+  document.getElementById("onboardingStep1").style.display = "";
+  document.getElementById("onboardingStepCreate").style.display = "none";
+  document.getElementById("onboardingStepJoin").style.display = "none";
+  const errEl = document.getElementById("onboardingError");
+  if (errEl) errEl.style.display = "none";
+}
+
+function hideOnboarding() {
+  document.getElementById("groupOnboardingModal").style.display = "none";
+}
+
+function showOnboardingCreate() {
+  document.getElementById("onboardingStep1").style.display = "none";
+  document.getElementById("onboardingStepCreate").style.display = "";
+  const inp = document.getElementById("newGroupNameInput");
+  if (inp) inp.focus();
+}
+
+function showOnboardingJoin() {
+  document.getElementById("onboardingStep1").style.display = "none";
+  document.getElementById("onboardingStepJoin").style.display = "";
+  const inp = document.getElementById("joinCodeInput");
+  if (inp) inp.focus();
+}
+
+function showOnboardingStep1() {
+  document.getElementById("onboardingStep1").style.display = "";
+  document.getElementById("onboardingStepCreate").style.display = "none";
+  document.getElementById("onboardingStepJoin").style.display = "none";
+}
+
+async function submitCreateGroup() {
+  const name    = (document.getElementById("newGroupNameInput").value || "").trim();
+  const desc    = (document.getElementById("newGroupDescInput").value || "").trim();
+  const errEl   = document.getElementById("onboardingError");
+  const btn     = document.getElementById("createGroupBtn");
+
+  if (!name) {
+    errEl.textContent = "Please enter a group name.";
+    errEl.style.display = "";
+    return;
+  }
+  errEl.style.display = "none";
+  btn.disabled = true;
+  btn.textContent = "Creating…";
+
+  try {
+    const groupId = await createGroup(name, desc);
+    hideOnboarding();
+    // subscribeMemberships will pick up the new group and call selectGroup
+  } catch (e) {
+    errEl.textContent = "Failed to create group: " + e.message;
+    errEl.style.display = "";
+    btn.disabled = false;
+    btn.textContent = "Create Group";
+  }
+}
+
+async function submitJoinByCode() {
+  const code  = (document.getElementById("joinCodeInput").value || "").trim();
+  const errEl = document.getElementById("onboardingError");
+  const btn   = document.getElementById("joinGroupBtn");
+
+  if (!code) {
+    errEl.textContent = "Please enter an invite code or paste the full invite link.";
+    errEl.style.display = "";
+    return;
+  }
+
+  // Accept full URL or just the code
+  let finalCode = code;
+  try {
+    const url = new URL(code);
+    finalCode = url.searchParams.get("invite") || code;
+  } catch (_) { /* not a URL, use raw code */ }
+
+  errEl.style.display = "none";
+  btn.disabled = true;
+  btn.textContent = "Joining…";
+
+  try {
+    await processInviteCode(finalCode);
+    // subscribeMemberships listener will fire and call selectGroup
+    hideOnboarding();
+  } catch (e) {
+    errEl.textContent = "Failed to join group: " + e.message;
+    errEl.style.display = "";
+    btn.disabled = false;
+    btn.textContent = "Join Group";
+  }
+}
+
+// ── Group: group switcher modal ───────────────────────────────
+
+function showGroupSwitcher() {
+  const modal = document.getElementById("groupSwitcherModal");
+  if (!modal) return;
+  renderGroupSwitcherList();
+  modal.style.display = "flex";
+}
+
+function hideGroupSwitcher() {
+  const modal = document.getElementById("groupSwitcherModal");
+  if (modal) modal.style.display = "none";
+}
+
+function renderGroupSwitcherList() {
+  const list = document.getElementById("groupSwitcherList");
+  if (!list) return;
+
+  if (userGroups.length === 0) {
+    list.innerHTML = `<div class="hc-empty">You haven't joined any groups yet.</div>`;
+    return;
+  }
+
+  list.innerHTML = userGroups.map((g) => {
+    const isActive = g.groupId === currentGroupId;
+    const roleBadge = g.role === "admin"
+      ? `<span class="hc-group-role-badge hc-group-role-badge--admin">Admin</span>`
+      : `<span class="hc-group-role-badge">Member</span>`;
+    return `
+      <div class="hc-group-switcher-item${isActive ? " active" : ""}" onclick="switchToGroup('${g.groupId}')">
+        <div class="hc-group-switcher-name">${escapeHtml(g.groupName || g.groupId)}</div>
+        ${roleBadge}
+        ${isActive ? `<span class="hc-group-active-tick">✓ Active</span>` : ""}
+      </div>`;
+  }).join("");
+}
+
+async function switchToGroup(groupId) {
+  hideGroupSwitcher();
+  // Reset role context for new group
+  currentRole         = null;
+  connectorProfile    = null;
+  isConnectorApproved = false;
+  if (unsubscribeConnectorProfile) { unsubscribeConnectorProfile(); unsubscribeConnectorProfile = null; }
+  openRequests    = [];
+  resolvedRequests = [];
+  searchQuery     = "";
+  resolvedSearchQuery = "";
+  await selectGroup(groupId);
+}
+
+// ── Group: settings modal (General / Members / Connectors tabs) ──
+
+function showGroupSettings() {
+  const modal = document.getElementById("groupSettingsModal");
+  if (!modal || !currentGroupId || !isGroupAdmin) return;
+  modal.style.display = "flex";
+  showGroupSettingsTab("general");
+}
+
+function hideGroupSettings() {
+  const modal = document.getElementById("groupSettingsModal");
+  if (modal) modal.style.display = "none";
+}
+
+function showGroupSettingsTab(tab) {
+  ["general", "members", "connectors"].forEach((t) => {
+    const pane = document.getElementById(`groupSettingsTab_${t}`);
+    const btn  = document.getElementById(`groupSettingsTabBtn_${t}`);
+    if (pane) pane.style.display = t === tab ? "" : "none";
+    if (btn)  btn.classList.toggle("active", t === tab);
+  });
+  if (tab === "general")    renderGroupSettingsGeneral();
+  if (tab === "members")    renderGroupMembersTab();
+  if (tab === "connectors") renderGroupConnectorsTab();
+}
+
+function renderGroupSettingsGeneral() {
+  const wrap = document.getElementById("groupSettingsTab_general");
+  if (!wrap || !currentGroupProfile) return;
+
+  const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${currentGroupProfile.inviteCode}`;
+
+  wrap.innerHTML = `
+    <div class="hc-form-group">
+      <label for="gsGroupName">Group Name</label>
+      <input id="gsGroupName" type="text" class="hc-input" style="width:100%"
+        value="${escapeHtml(currentGroupProfile.name)}" />
+    </div>
+    <div class="hc-form-group">
+      <label for="gsGroupDesc">Description <span class="hc-optional">(optional)</span></label>
+      <input id="gsGroupDesc" type="text" class="hc-input" style="width:100%"
+        value="${escapeHtml(currentGroupProfile.description || "")}" />
+    </div>
+    <div id="gsGeneralError" class="hc-feedback" style="display:none"></div>
+    <div class="hc-form-actions" style="margin-top:8px">
+      <button class="hc-submit-btn" onclick="saveGroupSettings()">Save</button>
+    </div>
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border)">
+      <div class="hc-form-group">
+        <label>Invite Link</label>
+        <div class="hc-invite-link-row">
+          <input id="gsInviteLink" type="text" class="hc-input" style="flex:1;font-size:12px"
+            value="${escapeHtml(inviteLink)}" readonly />
+          <button class="hc-cancel-btn" onclick="copyInviteLink()">Copy</button>
+          <button class="hc-cancel-btn" onclick="regenerateInviteCode()" title="Generate a new code — old link stops working">Regenerate</button>
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:6px">Share this link to invite members to your group. Regenerating will invalidate the current link.</p>
+      </div>
+    </div>`;
+}
+
+async function saveGroupSettings() {
+  const name  = (document.getElementById("gsGroupName").value || "").trim();
+  const desc  = (document.getElementById("gsGroupDesc").value || "").trim();
+  const errEl = document.getElementById("gsGeneralError");
+
+  if (!name) {
+    errEl.textContent = "Group name cannot be empty.";
+    errEl.style.display = "";
+    return;
+  }
+  errEl.style.display = "none";
+
+  try {
+    await db.collection("hireconnect_groups").doc(currentGroupId).update({ name, description: desc });
+    // Update groupName in membership docs for this group (best-effort)
+    const snap = await db.collection("hireconnect_memberships")
+      .where("groupId", "==", currentGroupId).get();
+    const batch = db.batch();
+    snap.docs.forEach((d) => batch.update(d.ref, { groupName: name }));
+    await batch.commit();
+  } catch (e) {
+    errEl.textContent = "Save failed: " + e.message;
+    errEl.style.display = "";
+  }
+}
+
+function copyInviteLink() {
+  const el = document.getElementById("gsInviteLink");
+  if (!el) return;
+  navigator.clipboard.writeText(el.value).then(() => {
+    const btn = el.nextElementSibling;
+    if (btn) { btn.textContent = "Copied!"; setTimeout(() => { btn.textContent = "Copy"; }, 2000); }
+  }).catch(() => { el.select(); document.execCommand("copy"); });
+}
+
+function renderGroupMembersTab() {
+  const wrap = document.getElementById("groupSettingsTab_members");
+  if (!wrap || !currentGroupId) return;
+  wrap.innerHTML = `<div class="hc-empty">Loading members…</div>`;
+
+  db.collection("hireconnect_memberships")
+    .where("groupId", "==", currentGroupId)
+    .get()
+    .then((snap) => {
+      if (snap.empty) {
+        wrap.innerHTML = `<div class="hc-empty">No members yet.</div>`;
+        return;
+      }
+      const members = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const adminCount = members.filter((m) => m.role === "admin").length;
+
+      const rows = members.sort((a, b) => {
+        if (a.role === b.role) return (a.uid || "").localeCompare(b.uid || "");
+        return a.role === "admin" ? -1 : 1;
+      }).map((m) => {
+        const isMe = m.uid === currentUser.uid;
+        const canDemote = m.role === "admin" && adminCount > 1 && !isMe;
+        const canPromote = m.role === "member";
+        const actionBtn = canPromote
+          ? `<button class="hc-toggle-btn hc-toggle-btn--enable" onclick="setMemberRole('${m.uid}','${currentGroupId}','admin')">Make Admin</button>`
+          : canDemote
+            ? `<button class="hc-toggle-btn hc-toggle-btn--disable" onclick="setMemberRole('${m.uid}','${currentGroupId}','member')">Remove Admin</button>`
+            : `<span style="color:var(--muted);font-size:0.78rem">${isMe ? "(you)" : ""}</span>`;
+
+        const rolePill = m.role === "admin"
+          ? `<span class="hc-approved-pill">Admin</span>`
+          : `<span class="hc-unapproved-pill">Member</span>`;
+
+        return `<tr>
+          <td style="font-weight:600">${escapeHtml(m.uid.slice(-6))}</td>
+          <td style="text-align:center">${rolePill}</td>
+          <td style="text-align:center">${actionBtn}</td>
+        </tr>`;
+      }).join("");
+
+      wrap.innerHTML = `
+        <table class="hc-admin-table">
+          <thead><tr>
+            <th>User ID (last 6)</th>
+            <th style="text-align:center">Role</th>
+            <th style="text-align:center">Action</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <p style="font-size:11px;color:var(--muted);margin-top:10px">
+          There must always be at least one admin. You cannot remove your own admin rights.
+        </p>`;
+    })
+    .catch((e) => {
+      wrap.innerHTML = `<div class="hc-empty">Failed to load members: ${escapeHtml(e.message)}</div>`;
+    });
+}
+
+function renderGroupConnectorsTab() {
+  const wrap = document.getElementById("groupSettingsTab_connectors");
+  if (!wrap || !currentGroupId) return;
+  wrap.innerHTML = `<div class="hc-empty">Loading connectors…</div>`;
+
+  db.collection("hireconnect_connectors")
+    .where("groupId", "==", currentGroupId)
+    .get()
+    .then((snap) => {
+      if (snap.empty) {
+        wrap.innerHTML = `<div class="hc-empty">No connectors registered in this group yet.</div>`;
+        return;
+      }
+      const connectors = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const pending = connectors.filter((c) => !c.approved).length;
+
+      const sorted = [...connectors].sort((a, b) => {
+        if (a.approved === b.approved) return (a.displayName || "").localeCompare(b.displayName || "");
+        return a.approved ? 1 : -1;
+      });
+
+      const rows = sorted.map((c) => {
+        const statusPill = c.approved
+          ? `<span class="hc-approved-pill">✓ Approved</span>`
+          : `<span class="hc-unapproved-pill">⏳ Pending</span>`;
+        const toggleLabel = c.approved ? "Disable" : "Approve";
+        const toggleClass = c.approved
+          ? "hc-toggle-btn hc-toggle-btn--disable"
+          : "hc-toggle-btn hc-toggle-btn--enable";
+        return `<tr>
+          <td>
+            <div style="font-weight:600">${escapeHtml(c.displayName || "Unknown")}</div>
+            <div style="font-size:0.78rem;color:var(--muted)">${escapeHtml(c.email || "")}</div>
+          </td>
+          <td>${escapeHtml(c.company || "—")}</td>
+          <td style="text-align:center">${statusPill}</td>
+          <td style="text-align:center">
+            <button class="${toggleClass}" onclick="approveConnectorForGroup('${c.id}',${c.approved}); renderGroupConnectorsTab();">${toggleLabel}</button>
+          </td>
+        </tr>`;
+      }).join("");
+
+      const pendingBanner = pending > 0
+        ? `<div class="hc-pending-banner" style="margin-bottom:12px">⚠️ <strong>${pending} connector(s)</strong> awaiting approval</div>`
+        : "";
+
+      wrap.innerHTML = `
+        ${pendingBanner}
+        <table class="hc-admin-table">
+          <thead><tr>
+            <th>Name</th><th>Company</th>
+            <th style="text-align:center">Status</th>
+            <th style="text-align:center">Action</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    })
+    .catch((e) => {
+      wrap.innerHTML = `<div class="hc-empty">Failed to load connectors: ${escapeHtml(e.message)}</div>`;
+    });
+}
+
 // ── Feedback modal ───────────────────────────────────────────
 
 function openFeedbackModal() {
@@ -1163,39 +1848,50 @@ document.addEventListener("DOMContentLoaded", () => {
     resolvedBox.addEventListener("search", () => { resolvedSearchQuery = resolvedBox.value.trim(); renderResolvedRequests(); });
   }
 
-  // Start real-time listeners (reads are public, no auth required)
-  subscribeOpen();
-  subscribeResolved();
+  // Site admin config (no auth required — reads public emails list)
   subscribeAdminConfig();
 
   // Auth observer
-  auth.onAuthStateChanged((user) => {
+  auth.onAuthStateChanged(async (user) => {
     currentUser = user;
     updateAdminStatus();
+
     if (user) {
-      loadRole();
-      if (!currentRole) {
-        showRolePicker();
-      } else if (currentRole === "connector") {
-        subscribeConnectorProfile();
-      } else if (currentRole === "seeker") {
-        loadConnectorCompanies();
+      // Process invite code from URL before loading memberships
+      const params     = new URLSearchParams(window.location.search);
+      const inviteCode = params.get("invite");
+      if (inviteCode) {
+        await processInviteCode(inviteCode);
       }
+
+      // Subscribe to user's group memberships (real-time)
+      // This listener will call selectGroup() once memberships are loaded
+      subscribeMemberships();
     } else {
+      // Clean up all state on sign-out
       currentRole         = null;
       connectorProfile    = null;
       isConnectorApproved = false;
-      if (unsubscribeConnectorProfile) {
-        unsubscribeConnectorProfile();
-        unsubscribeConnectorProfile = null;
-      }
+      currentGroupId      = null;
+      currentGroupProfile = null;
+      userGroups          = [];
+      isGroupAdmin        = false;
+      openRequests        = [];
+      resolvedRequests    = [];
+
+      if (unsubscribeConnectorProfile) { unsubscribeConnectorProfile(); unsubscribeConnectorProfile = null; }
+      if (unsubscribeGroupProfile)     { unsubscribeGroupProfile();     unsubscribeGroupProfile     = null; }
+      if (unsubscribeMemberships)      { unsubscribeMemberships();      unsubscribeMemberships      = null; }
+      if (unsubscribeOpen)             { unsubscribeOpen();             unsubscribeOpen             = null; }
+      if (unsubscribeResolved)         { unsubscribeResolved();         unsubscribeResolved         = null; }
+
+      renderGroupArea();
+      renderAuthBadge();
+      renderSubmitArea();
+      renderOpenRequests();
+      renderResolvedRequests();
+      renderCompanySidebar();
+      updateHeroCards();
     }
-    renderAuthBadge();
-    renderSubmitArea();
-    // Re-render lists to show/hide delete buttons, role filters, and auth-gated panels
-    renderOpenRequests();
-    renderResolvedRequests();
-    renderCompanySidebar();
-    updateHeroCards();
   });
 });

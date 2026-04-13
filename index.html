@@ -21,11 +21,17 @@
 </head>
 <body>
 
+<!-- INVITE ERROR BANNER -->
+<div id="inviteErrorBanner" class="hc-invite-error-banner" style="display:none"></div>
+
 <!-- HEADER -->
 <header class="hc-topbar">
   <div class="hc-title-group">
     <h1 class="hc-title">InsideHire.fyi<span class="hc-beta-tag">Beta</span></h1>
-    <span class="hc-community-label">St.Thomas Syro Malabar Church Community</span>
+    <div class="hc-group-label-row">
+      <span id="groupNameLabel" class="hc-community-label"></span>
+      <button id="groupAdminBtn" class="hc-group-admin-btn" onclick="showGroupSettings()" style="display:none">⚙ Manage Group</button>
+    </div>
   </div>
   <a href="blog.html" class="hc-nav-link">Blog</a>
   <div id="authArea" class="hc-auth-area"></div>
@@ -213,6 +219,99 @@
         <button class="hc-submit-btn" onclick="submitFeedback()">Send Feedback</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- GROUP ONBOARDING MODAL (no groups yet) -->
+<div id="groupOnboardingModal" class="hc-role-modal" style="display:none">
+  <div class="hc-role-modal-inner">
+
+    <!-- Step 1: Create or Join -->
+    <div id="onboardingStep1">
+      <h2 class="hc-role-modal-title">Welcome to InsideHire.fyi</h2>
+      <p class="hc-role-modal-sub">Get started by creating a new group or joining an existing one with an invite link.</p>
+      <div class="hc-role-cards-picker">
+        <button class="hc-role-card hc-role-card--seeker" onclick="showOnboardingCreate()">
+          <span class="hc-role-card-icon">🏠</span>
+          <strong>Create a Group</strong>
+          <p>Start a new community for your organization, school, or network.</p>
+        </button>
+        <button class="hc-role-card hc-role-card--connector" onclick="showOnboardingJoin()">
+          <span class="hc-role-card-icon">🔗</span>
+          <strong>Join a Group</strong>
+          <p>Paste an invite link or code to join an existing group.</p>
+        </button>
+      </div>
+      <div id="onboardingError" class="hc-feedback" style="display:none;margin-top:14px;text-align:center;color:#ef4444"></div>
+    </div>
+
+    <!-- Step: Create group form -->
+    <div id="onboardingStepCreate" style="display:none">
+      <h2 class="hc-role-modal-title">Create a Group</h2>
+      <p class="hc-role-modal-sub">You'll be the admin. You can invite members after creation.</p>
+      <div class="hc-connector-company-form">
+        <input id="newGroupNameInput" type="text" class="hc-input"
+          placeholder="Group name (e.g. St. Thomas Syro Malabar Church)" autocomplete="off" />
+        <input id="newGroupDescInput" type="text" class="hc-input"
+          placeholder="Short description (optional)" autocomplete="off" />
+        <div id="onboardingError" class="hc-feedback" style="display:none;color:#ef4444"></div>
+        <div class="hc-connector-company-actions">
+          <button class="hc-cancel-btn" onclick="showOnboardingStep1()">← Back</button>
+          <button id="createGroupBtn" class="hc-submit-btn" onclick="submitCreateGroup()">Create Group</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step: Join group form -->
+    <div id="onboardingStepJoin" style="display:none">
+      <h2 class="hc-role-modal-title">Join a Group</h2>
+      <p class="hc-role-modal-sub">Paste the full invite link or just the invite code.</p>
+      <div class="hc-connector-company-form">
+        <input id="joinCodeInput" type="text" class="hc-input"
+          placeholder="https://insidehire.fyi/?invite=… or just the code" autocomplete="off" />
+        <div id="onboardingError" class="hc-feedback" style="display:none;color:#ef4444"></div>
+        <div class="hc-connector-company-actions">
+          <button class="hc-cancel-btn" onclick="showOnboardingStep1()">← Back</button>
+          <button id="joinGroupBtn" class="hc-submit-btn" onclick="submitJoinByCode()">Join Group</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- GROUP SWITCHER MODAL -->
+<div id="groupSwitcherModal" class="hc-role-modal" style="display:none" onclick="if(event.target===this)hideGroupSwitcher()">
+  <div class="hc-role-modal-inner hc-group-switcher-inner">
+    <h2 class="hc-role-modal-title">Your Groups</h2>
+    <p class="hc-role-modal-sub">Switch between groups or join / create a new one.</p>
+    <div id="groupSwitcherList" class="hc-group-switcher-list"></div>
+    <div class="hc-group-switcher-actions">
+      <button class="hc-cancel-btn" onclick="hideGroupSwitcher()">Close</button>
+      <button class="hc-submit-btn" onclick="hideGroupSwitcher(); showOnboarding();">+ Join / Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- GROUP SETTINGS MODAL (group admin only) -->
+<div id="groupSettingsModal" class="hc-role-modal" style="display:none" onclick="if(event.target===this)hideGroupSettings()">
+  <div class="hc-group-settings-inner">
+    <div class="hc-group-settings-header">
+      <h2 class="hc-role-modal-title" style="margin:0">Group Settings</h2>
+      <button class="hc-feedback-close-btn" onclick="hideGroupSettings()" aria-label="Close">✕</button>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="hc-group-settings-tabs">
+      <button id="groupSettingsTabBtn_general"    class="hc-gs-tab-btn active" onclick="showGroupSettingsTab('general')">General</button>
+      <button id="groupSettingsTabBtn_members"    class="hc-gs-tab-btn"        onclick="showGroupSettingsTab('members')">Members</button>
+      <button id="groupSettingsTabBtn_connectors" class="hc-gs-tab-btn"        onclick="showGroupSettingsTab('connectors')">Connectors</button>
+    </div>
+
+    <!-- Tab panes -->
+    <div id="groupSettingsTab_general"    class="hc-gs-tab-pane"></div>
+    <div id="groupSettingsTab_members"    class="hc-gs-tab-pane" style="display:none"></div>
+    <div id="groupSettingsTab_connectors" class="hc-gs-tab-pane" style="display:none"></div>
   </div>
 </div>
 

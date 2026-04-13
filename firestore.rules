@@ -1,0 +1,154 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ───────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Site admin: email must be in hireconnect_config/admins
+    function isSiteAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/hireconnect_config/admins)
+        && request.auth.token.email in
+             get(/databases/$(database)/documents/hireconnect_config/admins).data.emails;
+    }
+
+    // User has any membership in this group
+    function isGroupMember(groupId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/hireconnect_memberships/$(request.auth.uid + '_' + groupId));
+    }
+
+    // User has role="admin" membership in this group
+    function isGroupAdmin(groupId) {
+      let membershipId = request.auth.uid + '_' + groupId;
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/hireconnect_memberships/$(membershipId))
+        && get(/databases/$(database)/documents/hireconnect_memberships/$(membershipId)).data.role == 'admin';
+    }
+
+    // Group must be active (invite links and joins respect this too)
+    function groupIsActive(groupId) {
+      return exists(/databases/$(database)/documents/hireconnect_groups/$(groupId))
+        && get(/databases/$(database)/documents/hireconnect_groups/$(groupId)).data.isActive == true;
+    }
+
+    // ── hireconnect_config ────────────────────────────────────
+    // Public read so the app can check admin status on load.
+    // Only site admins can write (self-referential, bootstrapped manually).
+    match /hireconnect_config/{docId} {
+      allow read:  if true;
+      allow write: if isSiteAdmin();
+    }
+
+    // ── hireconnect_groups ────────────────────────────────────
+    // Public read needed for invite-code lookup (?invite=CODE query).
+    // Any signed-in user can create a group (they become admin via membership doc).
+    // Updates restricted to group admins and site admins.
+    match /hireconnect_groups/{groupId} {
+      allow read:   if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (isSiteAdmin() || isGroupAdmin(groupId));
+      allow delete: if isSiteAdmin();
+    }
+
+    // ── hireconnect_memberships ───────────────────────────────
+    // Doc ID format: {uid}_{groupId}
+    // Users can read their own memberships.
+    // Group admins can read all memberships in their group.
+    // Users can create their own membership (joining via invite).
+    // Role changes (member ↔ admin) are restricted to group admins and site admins.
+    match /hireconnect_memberships/{membershipId} {
+      allow read: if isSignedIn() && (
+        isSiteAdmin()
+        || resource.data.uid == request.auth.uid
+        || isGroupAdmin(resource.data.groupId)
+      );
+      allow create: if isSignedIn() && (
+        // User creating their own membership doc
+        request.resource.data.uid == request.auth.uid
+        // Doc ID must match uid_groupId pattern
+        && membershipId == request.auth.uid + '_' + request.resource.data.groupId
+        // Group must exist and be active
+        && groupIsActive(request.resource.data.groupId)
+        // New members start as "member" — only group admin can write "admin" via update
+        && request.resource.data.role == 'member'
+        || isSiteAdmin()
+      );
+      allow update: if isSignedIn() && (
+        isSiteAdmin()
+        || isGroupAdmin(resource.data.groupId)
+      );
+      allow delete: if isSignedIn() && (
+        isSiteAdmin()
+        || resource.data.uid == request.auth.uid
+        || isGroupAdmin(resource.data.groupId)
+      );
+    }
+
+    // ── hireconnect_requests ──────────────────────────────────
+    // Reads: group members and site admins only.
+    // Create: any group member in an active group (submittedByUid must match caller).
+    // Update: owner can edit their own open request;
+    //         approved connectors in the same group can resolve;
+    //         group admins and site admins can do anything.
+    // Delete: owner, group admin, or site admin.
+    match /hireconnect_requests/{requestId} {
+      allow read: if isSignedIn() && (
+        isSiteAdmin()
+        || isGroupMember(resource.data.groupId)
+      );
+      allow create: if isSignedIn()
+        && request.resource.data.submittedByUid == request.auth.uid
+        && request.resource.data.groupId is string
+        && isGroupMember(request.resource.data.groupId)
+        && groupIsActive(request.resource.data.groupId);
+      allow update: if isSignedIn() && (
+        isSiteAdmin()
+        || isGroupAdmin(resource.data.groupId)
+        // Owner edits their own still-open request
+        || (resource.data.submittedByUid == request.auth.uid
+            && resource.data.status == 'open')
+        // Approved connector resolves
+        || (isGroupMember(resource.data.groupId)
+            && exists(/databases/$(database)/documents/hireconnect_connectors/$(request.auth.uid + '_' + resource.data.groupId))
+            && get(/databases/$(database)/documents/hireconnect_connectors/$(request.auth.uid + '_' + resource.data.groupId)).data.approved == true)
+      );
+      allow delete: if isSignedIn() && (
+        isSiteAdmin()
+        || isGroupAdmin(resource.data.groupId)
+        || resource.data.submittedByUid == request.auth.uid
+      );
+    }
+
+    // ── hireconnect_connectors ────────────────────────────────
+    // Doc ID format: {uid}_{groupId}
+    // Read: any signed-in user (needed for company list and connector profile).
+    // Create: users registering themselves as a connector in a group they belong to.
+    //         Doc ID must be {auth.uid}_{groupId}.
+    // Update: connector updates their own profile (company, linkedin — not approved);
+    //         group admins and site admins can flip approved.
+    // Delete: site admin only.
+    match /hireconnect_connectors/{connectorDocId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && connectorDocId == request.auth.uid + '_' + request.resource.data.groupId
+        && isGroupMember(request.resource.data.groupId)
+        // New connectors start unapproved
+        && request.resource.data.approved == false;
+      allow update: if isSignedIn() && (
+        isSiteAdmin()
+        || isGroupAdmin(resource.data.groupId)
+        // Connector updates their own non-approval fields
+        || (resource.data.uid == request.auth.uid
+            && !('approved' in request.resource.data.diff(resource.data).affectedKeys()))
+      );
+      allow delete: if isSiteAdmin();
+    }
+
+  }
+}

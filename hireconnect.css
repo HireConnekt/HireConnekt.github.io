@@ -1138,6 +1138,67 @@ body {
   margin: 1px auto 0;
 }
 
+/* === ADMIN TABS === */
+.hc-admin-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+.hc-admin-tab-btn {
+  padding: 9px 18px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  border-radius: 8px 8px 0 0;
+  white-space: nowrap;
+}
+.hc-admin-tab-btn:hover { color: var(--fg); background: #f3f4f6; }
+.hc-admin-tab-btn.active { color: var(--active); border-bottom-color: var(--active); background: #fff; }
+
+/* === PLATFORM STATS GRID === */
+.hc-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 8px;
+}
+.hc-stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 16px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+.hc-stat-value {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.hc-stat-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 640px) {
+  .hc-admin-tabs { gap: 2px; }
+  .hc-admin-tab-btn { padding: 7px 12px; font-size: 0.8rem; }
+  .hc-stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 /* === BLOG PAGE === */
 .hc-blog-main {
   max-width: 960px;
@@ -1415,4 +1476,197 @@ a.hc-blog-card:hover { box-shadow: var(--shadow-md); }
   .hc-post-stat { flex-direction: column; gap: 8px; }
   .hc-post-stat-number { font-size: 1.6rem; }
   .hc-post-hero { padding: 40px 16px 36px; }
+}
+
+/* ============================================================
+   GROUP UI — added for multi-group support
+   ============================================================ */
+
+/* === INVITE ERROR BANNER === */
+.hc-invite-error-banner {
+  background: #fef2f2;
+  border-bottom: 1px solid #fca5a5;
+  color: #b91c1c;
+  font-size: 0.88rem;
+  font-weight: 500;
+  padding: 10px 20px;
+  text-align: center;
+}
+
+/* === GROUP LABEL ROW (under the title) === */
+.hc-group-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hc-group-admin-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.hc-group-admin-btn:hover {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+/* === SWITCH GROUP BUTTON (in auth area) === */
+.hc-switch-group-btn {
+  padding: 5px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--muted);
+  font-family: inherit;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.hc-switch-group-btn:hover { background: #eff6ff; color: var(--active); border-color: #bfdbfe; }
+
+/* === GROUP SWITCHER MODAL === */
+.hc-group-switcher-inner {
+  max-width: 440px;
+  text-align: left;
+}
+
+.hc-group-switcher-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.hc-group-switcher-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: #fff;
+}
+.hc-group-switcher-item:hover { border-color: var(--active); background: #eff6ff; }
+.hc-group-switcher-item.active { border-color: var(--active); background: #eff6ff; }
+
+.hc-group-switcher-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--fg);
+}
+
+.hc-group-role-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 20px;
+  padding: 2px 9px;
+  background: #f3f4f6;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.hc-group-role-badge--admin {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.hc-group-active-tick {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--active);
+  white-space: nowrap;
+}
+
+.hc-group-switcher-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* === GROUP SETTINGS MODAL === */
+.hc-group-settings-inner {
+  background: var(--card);
+  border-radius: 20px;
+  width: 92%;
+  max-width: 580px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  overflow: hidden;
+}
+
+.hc-group-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.hc-group-settings-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 28px 0;
+  border-bottom: 1px solid var(--border);
+  background: #f8fafc;
+}
+
+.hc-gs-tab-btn {
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  border-radius: 8px 8px 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.hc-gs-tab-btn:hover { color: var(--fg); background: #eff6ff; }
+.hc-gs-tab-btn.active { color: var(--active); border-bottom-color: var(--active); background: #fff; }
+
+.hc-gs-tab-pane {
+  padding: 20px 28px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Invite link row inside settings */
+.hc-invite-link-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.hc-invite-link-row .hc-input { min-width: 0; }
+
+@media (max-width: 600px) {
+  .hc-group-settings-inner { max-height: 95vh; border-radius: 16px; }
+  .hc-gs-tab-pane { padding: 16px 18px 20px; }
+  .hc-group-settings-header { padding: 18px 18px 12px; }
+  .hc-group-settings-tabs { padding: 10px 18px 0; }
+  .hc-gs-tab-btn { padding: 7px 12px; font-size: 0.8rem; }
 }

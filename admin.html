@@ -35,31 +35,65 @@
 
 <main id="adminMain" class="hc-admin-main" style="display:none">
 
-  <!-- SEEKERS SECTION -->
-  <section class="hc-admin-section">
+  <!-- ADMIN TAB BAR -->
+  <div class="hc-admin-tabs">
+    <button class="hc-admin-tab-btn active" id="adminTabBtn_groups"    onclick="showAdminTab('groups')">🏠 Groups</button>
+    <button class="hc-admin-tab-btn"        id="adminTabBtn_seekers"   onclick="showAdminTab('seekers')">🎯 Seekers</button>
+    <button class="hc-admin-tab-btn"        id="adminTabBtn_connectors" onclick="showAdminTab('connectors')">🤝 Connectors</button>
+    <button class="hc-admin-tab-btn"        id="adminTabBtn_stats"     onclick="showAdminTab('stats')">📊 Platform Stats</button>
+  </div>
+
+  <!-- GROUPS TAB -->
+  <section id="adminTab_groups" class="hc-admin-section">
+    <h2>🏠 Groups
+      <span id="groupCount" class="hc-count-badge" style="display:none"></span>
+    </h2>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:12px">
+      All groups on the platform. Deactivating a group hides it from all members and invalidates its invite link.
+    </p>
+    <div id="groupTable" class="hc-admin-table-wrap">
+      <div class="hc-empty">Loading…</div>
+    </div>
+  </section>
+
+  <!-- SEEKERS TAB -->
+  <section id="adminTab_seekers" class="hc-admin-section" style="display:none">
     <h2>🎯 Seekers
       <span id="seekerCount" class="hc-count-badge" style="display:none"></span>
     </h2>
     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:12px">
-      Community members who have submitted connection requests.
+      All members who have submitted connection requests, across all groups.
     </p>
     <div id="seekerTable" class="hc-admin-table-wrap">
       <div class="hc-empty">Loading…</div>
     </div>
   </section>
 
-  <!-- CONNECTORS SECTION -->
-  <section class="hc-admin-section">
+  <!-- CONNECTORS TAB -->
+  <section id="adminTab_connectors" class="hc-admin-section" style="display:none">
     <h2>🤝 Connectors
       <span id="connectorCount" class="hc-count-badge" style="display:none"></span>
     </h2>
     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:12px">
-      Community members who have registered to help identify hiring managers.
+      All connectors registered across all groups.
     </p>
     <div id="pendingBanner" class="hc-pending-banner" style="display:none">
-      ⚠️ <strong><span id="pendingCount">0</span> connector(s)</strong> awaiting approval
+      ⚠️ <strong><span id="pendingCount">0</span> connector(s)</strong> awaiting approval across all groups
     </div>
     <div id="connectorTable" class="hc-admin-table-wrap">
+      <div class="hc-empty">Loading…</div>
+    </div>
+  </section>
+
+  <!-- PLATFORM STATS TAB -->
+  <section id="adminTab_stats" class="hc-admin-section" style="display:none">
+    <h2>📊 Platform Stats</h2>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:20px">
+      Aggregate activity across all groups on InsideHire.fyi.
+    </p>
+    <div id="platformStatsGrid" class="hc-stats-grid"></div>
+    <h3 style="margin:28px 0 12px;font-size:0.95rem">Top Groups by Activity</h3>
+    <div id="topGroupsTable" class="hc-admin-table-wrap">
       <div class="hc-empty">Loading…</div>
     </div>
   </section>
