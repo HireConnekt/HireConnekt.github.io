@@ -7,6 +7,7 @@ Community-powered job search platform where job seekers post a company + job URL
 - **Repo:** HireConnekt/HireConnekt.github.io (GitHub Pages, CNAME: insidehire.fyi)
 - **Contact:** siliconvalleysprouts@gmail.com
 - **Status:** Beta
+- **Community:** Currently branded for St.Thomas Syro Malabar Church Community
 
 ---
 
@@ -24,7 +25,7 @@ Community-powered job search platform where job seekers post a company + job URL
 | File | Purpose |
 |---|---|
 | `index.html` | Main landing page (seeker view) |
-| `hireconnect.js` | Core app logic (~1071 lines) |
+| `hireconnect.js` | Core app logic (~1201 lines) |
 | `hireconnect.css` | All styles (CSS custom properties, `hc-` prefix) |
 | `firebase-config.js` | Firebase project config; exports `db` (Firestore) and `auth` |
 | `admin.html` | Admin dashboard (seeker stats + connector approval) |
@@ -93,6 +94,7 @@ let currentRole = null;          // "seeker" | "connector"
 let isConnectorApproved = false; // real-time from Firestore
 let connectorProfile = null;     // { company, linkedinUrl, ... }
 let allCompanies = [];           // list of companies with approved connectors
+let resolvedSearchQuery = "";    // search query for resolved requests
 ```
 
 ### Key Functions (hireconnect.js)
@@ -103,7 +105,11 @@ let allCompanies = [];           // list of companies with approved connectors
 - `renderAuthBadge()` — renders role badge + Switch button + name + sign out
 - `resolveRequest(reqId)` — marks resolved, copies `resolverLinkedinUrl` from profile onto request doc
 - `renderOpenRequests()` — gates unapproved connectors with pending message
-- `renderResolvedRequests()` — gates unapproved connectors; Thanks badge links to connector's LinkedIn
+- `renderResolvedRequests()` — gates unapproved connectors; includes search functionality by company, URL, or details; Thanks badge links to connector's LinkedIn
+- `openFeedbackModal()` — opens feedback modal for user input
+- `closeFeedbackModal()` — closes feedback modal
+- `submitFeedback()` — sends feedback via mailto link
+- `onSearch(value)` — filters open requests by company, URL, or details
 
 ---
 
@@ -127,6 +133,15 @@ let allCompanies = [];           // list of companies with approved connectors
 - Shows seeker stats table (grouped by UID, open/resolved counts)
 - Shows connector table with pending banner; approve/disable toggle calls `toggleConnector(uid, currentApproved)`
 - Files: `admin.html` + `admin.js`
+
+---
+
+## Feedback System
+
+- Feedback modal accessible from footer button
+- Collects user feedback text and optional email
+- Sends via `mailto:` link to `siliconvalleysprouts@gmail.com`
+- Includes validation for required feedback text
 
 ---
 
