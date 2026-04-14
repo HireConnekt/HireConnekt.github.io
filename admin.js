@@ -10,6 +10,7 @@ let hcAdminEmails = [];
 let isHcAdmin     = false;
 let allRequests   = [];   // open + resolved combined (for stats)
 let connectors    = [];   // from hireconnect_connectors collection
+let allGroups     = [];   // from hireconnect_groups collection
 
 // ── Utilities ─────────────────────────────────────────────────
 
@@ -48,15 +49,39 @@ function renderAdminAuthBadge() {
   `;
 }
 
+// ── Tab switching ─────────────────────────────────────────────
+
+function showAdminTab(tab) {
+  ["groups", "seekers", "connectors", "stats"].forEach((t) => {
+    const section = document.getElementById(`adminTab_${t}`);
+    const btn     = document.getElementById(`adminTabBtn_${t}`);
+    if (section) section.style.display = t === tab ? "" : "none";
+    if (btn)     btn.classList.toggle("active", t === tab);
+  });
+  if (tab === "stats") renderPlatformStats();
+}
+
 // ── Data Subscriptions ────────────────────────────────────────
 
 function subscribeAdminData() {
+  // All groups
+  db.collection("hireconnect_groups").onSnapshot(
+    (snap) => {
+      allGroups = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      renderGroupTable();
+      renderPlatformStats();
+    },
+    (err) => console.error("Admin groups listener error:", err)
+  );
+
   // All requests (open + resolved) for seeker stats and connector company stats
   db.collection("hireconnect_requests").onSnapshot(
     (snap) => {
       allRequests = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       renderSeekerTable();
-      renderConnectorTable(); // connector company stats depend on allRequests
+      renderConnectorTable();
+      renderGroupTable();        // refresh request counts per group
+      renderPlatformStats();
     },
     (err) => console.error("Admin requests listener error:", err)
   );
@@ -69,6 +94,157 @@ function subscribeAdminData() {
     },
     (err) => console.error("Admin connectors listener error:", err)
   );
+}
+
+// ── Group Table ───────────────────────────────────────────────
+
+function renderGroupTable() {
+  const wrap = document.getElementById("groupTable");
+  if (!wrap) return;
+
+  const countEl = document.getElementById("groupCount");
+  if (countEl) {
+    countEl.textContent  = allGroups.length;
+    countEl.style.display = allGroups.length > 0 ? "" : "none";
+  }
+
+  if (allGroups.length === 0) {
+    wrap.innerHTML = `<div class="hc-empty">No groups yet.</div>`;
+    return;
+  }
+
+  const sorted = [...allGroups].sort((a, b) => {
+    // Active groups first, then by creation date desc
+    if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+    const aTime = a.createdAt ? a.createdAt.toMillis() : 0;
+    const bTime = b.createdAt ? b.createdAt.toMillis() : 0;
+    return bTime - aTime;
+  });
+
+  const thead = `
+    <thead><tr>
+      <th>Group Name</th>
+      <th style="text-align:center">Members</th>
+      <th style="text-align:center">Open Requests</th>
+      <th style="text-align:center">Resolved</th>
+      <th style="text-align:center">Connectors</th>
+      <th style="text-align:center">Status</th>
+      <th style="text-align:center">Action</th>
+    </tr></thead>`;
+
+  const tbody = sorted.map((g) => {
+    const openCount     = allRequests.filter((r) => r.groupId === g.id && r.status === "open").length;
+    const resolvedCount = allRequests.filter((r) => r.groupId === g.id && r.status === "resolved").length;
+    const connCount     = connectors.filter((c) => c.groupId === g.id && c.approved).length;
+
+    const statusPill = g.isActive
+      ? `<span class="hc-approved-pill">✓ Active</span>`
+      : `<span class="hc-unapproved-pill">⊘ Deactivated</span>`;
+
+    const toggleLabel = g.isActive ? "Deactivate" : "Reactivate";
+    const toggleClass = g.isActive
+      ? "hc-toggle-btn hc-toggle-btn--disable"
+      : "hc-toggle-btn hc-toggle-btn--enable";
+
+    const createdDate = g.createdAt
+      ? new Date(g.createdAt.toMillis()).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+      : "—";
+
+    return `<tr>
+      <td>
+        <div style="font-weight:600">${escapeHtml(g.name || "Unnamed")}</div>
+        ${g.description ? `<div style="font-size:0.78rem;color:var(--muted)">${escapeHtml(g.description)}</div>` : ""}
+        <div style="font-size:0.75rem;color:var(--muted)">Created ${createdDate}</div>
+      </td>
+      <td style="text-align:center">${g.memberCount || 0}</td>
+      <td style="text-align:center">${openCount}</td>
+      <td style="text-align:center">${resolvedCount}</td>
+      <td style="text-align:center">${connCount}</td>
+      <td style="text-align:center">${statusPill}</td>
+      <td style="text-align:center">
+        <button class="${toggleClass}"
+          onclick="toggleGroup('${escapeHtml(g.id)}', ${g.isActive})"
+        >${toggleLabel}</button>
+      </td>
+    </tr>`;
+  }).join("");
+
+  wrap.innerHTML = `<table class="hc-admin-table">${thead}<tbody>${tbody}</tbody></table>`;
+}
+
+function toggleGroup(groupId, currentlyActive) {
+  if (!isHcAdmin) return;
+  if (currentlyActive && !confirm("Deactivate this group? Members will lose access and the invite link will stop working.")) return;
+  db.collection("hireconnect_groups").doc(groupId).update({
+    isActive: !currentlyActive,
+  }).catch((err) => alert("Failed to update group: " + err.message));
+}
+
+// ── Platform Stats ────────────────────────────────────────────
+
+function renderPlatformStats() {
+  const grid = document.getElementById("platformStatsGrid");
+  if (!grid) return;
+
+  const activeGroups      = allGroups.filter((g) => g.isActive).length;
+  const deactivatedGroups = allGroups.length - activeGroups;
+  const totalOpen         = allRequests.filter((r) => r.status === "open").length;
+  const totalResolved     = allRequests.filter((r) => r.status === "resolved").length;
+  const totalConnectors   = connectors.filter((c) => c.approved).length;
+  const pendingConnectors = connectors.filter((c) => !c.approved).length;
+
+  const stats = [
+    { label: "Active Groups",      value: activeGroups,      color: "var(--p0)" },
+    { label: "Deactivated Groups", value: deactivatedGroups, color: "var(--muted)" },
+    { label: "Open Requests",      value: totalOpen,         color: "var(--active)" },
+    { label: "Resolved Requests",  value: totalResolved,     color: "var(--p0)" },
+    { label: "Approved Connectors",value: totalConnectors,   color: "var(--p0)" },
+    { label: "Pending Connectors", value: pendingConnectors, color: "var(--p1)" },
+  ];
+
+  grid.innerHTML = stats.map((s) => `
+    <div class="hc-stat-card">
+      <div class="hc-stat-value" style="color:${s.color}">${s.value}</div>
+      <div class="hc-stat-label">${s.label}</div>
+    </div>`).join("");
+
+  // Top groups table
+  const topWrap = document.getElementById("topGroupsTable");
+  if (!topWrap) return;
+
+  const groupActivity = allGroups.map((g) => ({
+    name:     g.name || "Unnamed",
+    open:     allRequests.filter((r) => r.groupId === g.id && r.status === "open").length,
+    resolved: allRequests.filter((r) => r.groupId === g.id && r.status === "resolved").length,
+    members:  g.memberCount || 0,
+    isActive: g.isActive,
+  })).sort((a, b) => (b.open + b.resolved) - (a.open + a.resolved)).slice(0, 10);
+
+  if (groupActivity.length === 0) {
+    topWrap.innerHTML = `<div class="hc-empty">No group activity yet.</div>`;
+    return;
+  }
+
+  const thead = `<thead><tr>
+    <th>Group</th>
+    <th style="text-align:center">Members</th>
+    <th style="text-align:center">Open</th>
+    <th style="text-align:center">Resolved</th>
+    <th style="text-align:center">Total Activity</th>
+  </tr></thead>`;
+
+  const tbody = groupActivity.map((g) => `<tr>
+    <td>
+      <span style="font-weight:600">${escapeHtml(g.name)}</span>
+      ${!g.isActive ? `<span class="hc-unapproved-pill" style="margin-left:6px">Deactivated</span>` : ""}
+    </td>
+    <td style="text-align:center">${g.members}</td>
+    <td style="text-align:center">${g.open}</td>
+    <td style="text-align:center">${g.resolved}</td>
+    <td style="text-align:center;font-weight:600">${g.open + g.resolved}</td>
+  </tr>`).join("");
+
+  topWrap.innerHTML = `<table class="hc-admin-table">${thead}<tbody>${tbody}</tbody></table>`;
 }
 
 // ── Seeker Table ──────────────────────────────────────────────
@@ -162,11 +338,16 @@ function renderConnectorTable() {
     return a.approved ? 1 : -1; // pending first
   });
 
+  // Build a map of groupId → groupName for display
+  const groupNameMap = {};
+  allGroups.forEach((g) => { groupNameMap[g.id] = g.name; });
+
   const thead = `
     <thead>
       <tr>
         <th>Name</th>
         <th>Company</th>
+        <th>Group</th>
         <th style="text-align:center">Open (co.)</th>
         <th style="text-align:center">Resolved (co.)</th>
         <th style="text-align:center">Status</th>
@@ -175,10 +356,11 @@ function renderConnectorTable() {
     </thead>`;
 
   const tbody = sorted.map((c) => {
-    // Count requests for this connector's company (case-insensitive)
-    const co = (c.company || "").toLowerCase();
-    const companyOpen     = allRequests.filter((r) => r.status === "open"     && (r.company || "").toLowerCase() === co).length;
-    const companyResolved = allRequests.filter((r) => r.status === "resolved" && (r.company || "").toLowerCase() === co).length;
+    // Count requests for this connector's company within the same group
+    const co      = (c.company || "").toLowerCase();
+    const gid     = c.groupId || "";
+    const companyOpen     = allRequests.filter((r) => r.groupId === gid && r.status === "open"     && (r.company || "").toLowerCase() === co).length;
+    const companyResolved = allRequests.filter((r) => r.groupId === gid && r.status === "resolved" && (r.company || "").toLowerCase() === co).length;
 
     const statusPill = c.approved
       ? `<span class="hc-approved-pill">✓ Approved</span>`
@@ -186,6 +368,7 @@ function renderConnectorTable() {
 
     const toggleLabel = c.approved ? "Disable" : "Enable";
     const toggleClass = c.approved ? "hc-toggle-btn hc-toggle-btn--disable" : "hc-toggle-btn hc-toggle-btn--enable";
+    const groupName   = gid ? escapeHtml(groupNameMap[gid] || gid.slice(-6)) : "—";
 
     return `
       <tr>
@@ -194,13 +377,14 @@ function renderConnectorTable() {
           <div style="font-size:0.78rem;color:var(--muted)">${escapeHtml(c.email || "")}</div>
         </td>
         <td>${escapeHtml(c.company || "—")}</td>
+        <td style="font-size:0.82rem;color:var(--muted)">${groupName}</td>
         <td style="text-align:center">${companyOpen}</td>
         <td style="text-align:center">${companyResolved}</td>
         <td style="text-align:center">${statusPill}</td>
         <td style="text-align:center">
           <button
             class="${toggleClass}"
-            onclick="toggleConnector('${escapeHtml(c.uid)}', ${c.approved})"
+            onclick="toggleConnector('${escapeHtml(c.id)}', ${c.approved})"
           >${toggleLabel}</button>
         </td>
       </tr>`;
@@ -211,9 +395,10 @@ function renderConnectorTable() {
 
 // ── Admin Actions ─────────────────────────────────────────────
 
-function toggleConnector(uid, currentApproved) {
+function toggleConnector(docId, currentApproved) {
   if (!isHcAdmin) return;
-  db.collection("hireconnect_connectors").doc(uid).update({
+  // docId is now "{uid}_{groupId}" — use it directly
+  db.collection("hireconnect_connectors").doc(docId).update({
     approved: !currentApproved,
   }).catch((err) => alert("Failed to update connector: " + err.message));
 }
