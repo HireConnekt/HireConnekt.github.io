@@ -164,6 +164,7 @@ async function selectGroup(groupId) {
     loadConnectorCompanies();
   }
 
+  updatePageVisibility();
   renderGroupArea();
   renderAuthBadge();
   renderSubmitArea();
@@ -417,6 +418,15 @@ function switchToRole(role) {
     showConnectorCompanyStep();
   }
   updateHeroCards();
+}
+
+function updatePageVisibility() {
+  const loggedIn = !!currentUser;
+  document.getElementById("heroLoggedOut").style.display   = loggedIn ? "none" : "";
+  document.getElementById("heroLoggedIn").style.display    = loggedIn ? ""     : "none";
+  document.getElementById("hcSubmitBar").style.display     = loggedIn ? ""     : "none";
+  document.getElementById("hcMainContent").style.display   = loggedIn ? ""     : "none";
+  document.getElementById("hcResolvedSection").style.display = loggedIn ? ""   : "none";
 }
 
 function updateHeroCards() {
@@ -1885,6 +1895,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (unsubscribeOpen)             { unsubscribeOpen();             unsubscribeOpen             = null; }
       if (unsubscribeResolved)         { unsubscribeResolved();         unsubscribeResolved         = null; }
 
+      updatePageVisibility();
       renderGroupArea();
       renderAuthBadge();
       renderSubmitArea();

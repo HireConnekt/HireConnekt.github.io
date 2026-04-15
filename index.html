@@ -40,40 +40,60 @@
 <!-- HERO -->
 <section class="hc-hero">
   <div class="hc-hero-inner">
-    <p class="hc-hero-headline">
-      Connect with the Hiring Manager - faster!<br>
-      <span class="hc-hero-sub">InsideHire.fyi helps you identify the hiring manager behind a job posting. Powered by a trusted community.</span>
-    </p>
-    <div class="hc-hero-cards">
-      <div class="hc-hero-card hc-hero-card--seeker" id="heroCardSeeker" onclick="switchToRole('seeker')" onkeydown="if(event.key==='Enter'||event.key===' ')switchToRole('seeker')" role="button" tabindex="0" aria-label="Switch to Job Seeker role">
-        <span class="hc-hero-card-icon">🎯</span>
-        <div>
-          <strong>Job Seekers</strong>
-          <p>Sign in and submit a job posting - optionally <b>anonymously</b>. InsideHire.fyi helps identify the hiring manager behind a job posting, enabling you to reach out directly through LinkedIn messages or shared connections.</p>
-          <span class="hc-hero-card-badge" id="heroCardSeekerBadge"></span>
+
+    <!-- Logged-out view: image + dual CTA -->
+    <div id="heroLoggedOut" class="hc-hero-loggedout">
+      <img src="img/insideHire.png" alt="InsideHire.fyi — Unlock the Hidden Hiring Insights" class="hc-hero-img" />
+      <div class="hc-hero-cta-row">
+        <div class="hc-hero-cta-col">
+          <button class="hc-hero-cta-btn hc-hero-cta-btn--seeker" onclick="switchToRole('seeker')">🎯 I'm a Job Seeker</button>
+          <span class="hc-hero-cta-tagline">Reach Out. Get Hired.</span>
         </div>
-      </div>
-      <div class="hc-hero-card hc-hero-card--helper" id="heroCardConnector" onclick="switchToRole('connector')" onkeydown="if(event.key==='Enter'||event.key===' ')switchToRole('connector')" role="button" tabindex="0" aria-label="Switch to Connector role">
-        <span class="hc-hero-card-icon">🤝</span>
-        <div>
-          <strong>Connectors</strong>
-          <p>Work at the company? <b>Anonymously</b> share hiring manager info or offer a referral. A few seconds of your time can change someone's career trajectory. <small>Company affiliation may be verified.</small></p>
-          <span class="hc-hero-card-badge" id="heroCardConnectorBadge"></span>
+        <div class="hc-hero-cta-col">
+          <button class="hc-hero-cta-btn hc-hero-cta-btn--connector" onclick="switchToRole('connector')">🤝 I'm a Connector</button>
+          <span class="hc-hero-cta-tagline">Make an impact. Change a Career.</span>
         </div>
       </div>
     </div>
+
+    <!-- Logged-in view: role switcher cards -->
+    <div id="heroLoggedIn" style="display:none">
+      <p class="hc-hero-headline">
+        Connect with the Hiring Manager - faster!<br>
+        <span class="hc-hero-sub">InsideHire.fyi helps you identify the hiring manager behind a job posting. Powered by a trusted community.</span>
+      </p>
+      <div class="hc-hero-cards">
+        <div class="hc-hero-card hc-hero-card--seeker" id="heroCardSeeker" onclick="switchToRole('seeker')" onkeydown="if(event.key==='Enter'||event.key===' ')switchToRole('seeker')" role="button" tabindex="0" aria-label="Switch to Job Seeker role">
+          <span class="hc-hero-card-icon">🎯</span>
+          <div>
+            <strong>Job Seekers</strong>
+            <p>Sign in and submit a job posting - optionally <b>anonymously</b>. InsideHire.fyi helps identify the hiring manager behind a job posting, enabling you to reach out directly through LinkedIn messages or shared connections.</p>
+            <span class="hc-hero-card-badge" id="heroCardSeekerBadge"></span>
+          </div>
+        </div>
+        <div class="hc-hero-card hc-hero-card--helper" id="heroCardConnector" onclick="switchToRole('connector')" onkeydown="if(event.key==='Enter'||event.key===' ')switchToRole('connector')" role="button" tabindex="0" aria-label="Switch to Connector role">
+          <span class="hc-hero-card-icon">🤝</span>
+          <div>
+            <strong>Connectors</strong>
+            <p>Work at the company? <b>Anonymously</b> share hiring manager info or offer a referral. A few seconds of your time can change someone's career trajectory. <small>Company affiliation may be verified.</small></p>
+            <span class="hc-hero-card-badge" id="heroCardConnectorBadge"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </section>
 
 <!-- SUBMIT BAR -->
-<section class="hc-submit-bar">
+<section class="hc-submit-bar" id="hcSubmitBar" style="display:none">
   <div class="hc-submit-inner" id="submitFormArea">
     <!-- Rendered by renderSubmitArea() in hireconnect.js -->
   </div>
 </section>
 
 <!-- MAIN: two-column -->
-<main class="hc-main">
+<main class="hc-main" id="hcMainContent" style="display:none">
 
   <!-- LEFT: Open requests -->
   <section class="hc-open-panel">
@@ -110,7 +130,7 @@
 </main>
 
 <!-- RESOLVED SECTION -->
-<section class="hc-resolved-section">
+<section class="hc-resolved-section" id="hcResolvedSection" style="display:none">
   <div class="hc-panel-header">
     <h2 class="hc-resolved-header">
       ✅ Resolved
