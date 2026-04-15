@@ -941,10 +941,15 @@ body {
 }
 
 @media (max-width: 480px) {
-  .hc-topbar { padding: 8px 12px; }
+  .hc-topbar { padding: 8px 12px; gap: 8px; }
   .hc-auth-name { display: none; }
   .hc-submit-inner { padding: 0 14px; }
   .hc-hero-inner { padding: 0 14px; }
+  /* Hide secondary header items to keep topbar single-row */
+  .hc-nav-link { display: none; }
+  .hc-role-badge { display: none; }
+  .hc-switch-group-btn { display: none; }
+  .hc-group-admin-btn { display: none; }
 }
 
 /* === ROLE PICKER MODAL === */
