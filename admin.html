@@ -38,6 +38,8 @@
   <!-- ADMIN TAB BAR -->
   <div class="hc-admin-tabs">
     <button class="hc-admin-tab-btn active" id="adminTabBtn_groups"    onclick="showAdminTab('groups')">🏠 Groups</button>
+    <button class="hc-admin-tab-btn"        id="adminTabBtn_waitlist"  onclick="showAdminTab('waitlist')">📋 Beta Waitlist</button>
+    <button class="hc-admin-tab-btn"        id="adminTabBtn_invites"   onclick="showAdminTab('invites')">🎟️ Creator Invites</button>
     <button class="hc-admin-tab-btn"        id="adminTabBtn_seekers"   onclick="showAdminTab('seekers')">🎯 Seekers</button>
     <button class="hc-admin-tab-btn"        id="adminTabBtn_connectors" onclick="showAdminTab('connectors')">🤝 Connectors</button>
     <button class="hc-admin-tab-btn"        id="adminTabBtn_stats"     onclick="showAdminTab('stats')">📊 Platform Stats</button>
@@ -52,6 +54,69 @@
       All groups on the platform. Deactivating a group hides it from all members and invalidates its invite link.
     </p>
     <div id="groupTable" class="hc-admin-table-wrap">
+      <div class="hc-empty">Loading…</div>
+    </div>
+  </section>
+
+  <!-- BETA WAITLIST TAB -->
+  <section id="adminTab_waitlist" class="hc-admin-section" style="display:none">
+    <h2>📋 Beta Waitlist
+      <span id="waitlistCount" class="hc-count-badge" style="display:none"></span>
+    </h2>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:12px">
+      Users requesting Beta access to create groups. Approve requests, then grant creator invites on the Creator Invites tab.
+    </p>
+
+    <!-- Filter buttons -->
+    <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="hc-filter-btn active" id="waitlistFilter_all" onclick="filterWaitlist('all')">All</button>
+      <button class="hc-filter-btn" id="waitlistFilter_pending" onclick="filterWaitlist('pending')">
+        Pending <span id="waitlistPendingCount" class="hc-filter-count"></span>
+      </button>
+      <button class="hc-filter-btn" id="waitlistFilter_approved" onclick="filterWaitlist('approved')">
+        Approved <span id="waitlistApprovedCount" class="hc-filter-count"></span>
+      </button>
+      <button class="hc-filter-btn" id="waitlistFilter_rejected" onclick="filterWaitlist('rejected')">
+        Rejected <span id="waitlistRejectedCount" class="hc-filter-count"></span>
+      </button>
+    </div>
+
+    <div id="waitlistTable" class="hc-admin-table-wrap">
+      <div class="hc-empty">Loading…</div>
+    </div>
+  </section>
+
+  <!-- CREATOR INVITES TAB -->
+  <section id="adminTab_invites" class="hc-admin-section" style="display:none">
+    <h2>🎟️ Creator Invites
+      <span id="inviteCount" class="hc-count-badge" style="display:none"></span>
+    </h2>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:12px">
+      Grant group creation rights. Each invite allows the user to create up to X groups (configurable).
+    </p>
+
+    <!-- Send Invite Form -->
+    <div style="margin-bottom:24px;padding:16px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+      <h3 style="margin:0 0 12px 0;font-size:1em">Send Creator Invite</h3>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:1;min-width:250px">
+          <label style="display:block;font-size:0.85em;margin-bottom:4px;opacity:0.8">Gmail Address</label>
+          <input id="inviteEmailInput" type="email" class="hc-input" placeholder="user@gmail.com" />
+        </div>
+        <div style="width:100px">
+          <label style="display:block;font-size:0.85em;margin-bottom:4px;opacity:0.8">Quota</label>
+          <input id="inviteQuotaInput" type="number" class="hc-input" value="3" min="1" max="100" />
+        </div>
+        <button id="sendInviteBtn" class="hc-submit-btn" onclick="sendCreatorInvite()">Send Invite</button>
+      </div>
+      <div id="inviteFormError" class="hc-feedback" style="display:none;margin-top:8px"></div>
+      <div id="inviteFormSuccess" class="hc-feedback success" style="display:none;margin-top:8px;color:#22c55e"></div>
+      <p style="margin:8px 0 0 0;font-size:0.85em;opacity:0.7">
+        <strong>Note:</strong> This grants group creation rights in the app. Remember to email the user separately to notify them!
+      </p>
+    </div>
+
+    <div id="inviteTable" class="hc-admin-table-wrap">
       <div class="hc-empty">Loading…</div>
     </div>
   </section>

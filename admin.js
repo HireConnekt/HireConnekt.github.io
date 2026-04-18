@@ -12,6 +12,12 @@ let allRequests   = [];   // open + resolved combined (for stats)
 let connectors    = [];   // from hireconnect_connectors collection
 let allGroups     = [];   // from hireconnect_groups collection
 
+// Beta state
+let betaWaitlist     = [];   // from beta_waitlist collection
+let creatorInvites   = [];   // from beta_creator_invites collection
+let betaSettings     = null; // from hireconnect_config/beta_settings
+let waitlistFilter   = 'all'; // current filter: all, pending, approved, rejected
+
 // ── Utilities ─────────────────────────────────────────────────
 
 function escapeHtml(str) {
@@ -52,18 +58,46 @@ function renderAdminAuthBadge() {
 // ── Tab switching ─────────────────────────────────────────────
 
 function showAdminTab(tab) {
-  ["groups", "seekers", "connectors", "stats"].forEach((t) => {
+  ["groups", "waitlist", "invites", "seekers", "connectors", "stats"].forEach((t) => {
     const section = document.getElementById(`adminTab_${t}`);
     const btn     = document.getElementById(`adminTabBtn_${t}`);
     if (section) section.style.display = t === tab ? "" : "none";
     if (btn)     btn.classList.toggle("active", t === tab);
   });
   if (tab === "stats") renderPlatformStats();
+  if (tab === "waitlist") renderWaitlistTable();
+  if (tab === "invites") renderInviteTable();
 }
 
 // ── Data Subscriptions ────────────────────────────────────────
 
 function subscribeAdminData() {
+  // Beta settings
+  db.collection("hireconnect_config").doc("beta_settings").onSnapshot(
+    (snap) => {
+      betaSettings = snap.exists ? snap.data() : { defaultCreatorQuota: 3, betaEnabled: false };
+    },
+    (err) => console.error("Beta settings listener error:", err)
+  );
+
+  // Beta waitlist
+  db.collection("beta_waitlist").orderBy("requestedAt", "desc").onSnapshot(
+    (snap) => {
+      betaWaitlist = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      renderWaitlistTable();
+    },
+    (err) => console.error("Waitlist listener error:", err)
+  );
+
+  // Creator invites
+  db.collection("beta_creator_invites").onSnapshot(
+    (snap) => {
+      creatorInvites = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      renderInviteTable();
+    },
+    (err) => console.error("Creator invites listener error:", err)
+  );
+
   // All groups
   db.collection("hireconnect_groups").onSnapshot(
     (snap) => {
@@ -435,3 +469,366 @@ document.addEventListener("DOMContentLoaded", () => {
       .catch(() => showAccessDenied("Could not verify admin access. Try again.", true));
   });
 });
+
+// ══════════════════════════════════════════════════════════════
+// BETA WAITLIST & CREATOR INVITES
+// ══════════════════════════════════════════════════════════════
+
+// ── Beta Waitlist Filter ──────────────────────────────────────
+
+function filterWaitlist(status) {
+  waitlistFilter = status;
+  ["all", "pending", "approved", "rejected"].forEach((s) => {
+    const btn = document.getElementById(`waitlistFilter_${s}`);
+    if (btn) btn.classList.toggle("active", s === status);
+  });
+  renderWaitlistTable();
+}
+
+// ── Beta Waitlist Table ───────────────────────────────────────
+
+function renderWaitlistTable() {
+  const wrap = document.getElementById("waitlistTable");
+  if (!wrap) return;
+
+  // Count by status
+  const pendingCount  = betaWaitlist.filter((w) => w.status === "pending").length;
+  const approvedCount = betaWaitlist.filter((w) => w.status === "approved").length;
+  const rejectedCount = betaWaitlist.filter((w) => w.status === "rejected").length;
+
+  // Update counts in filter buttons
+  const pendingBadge  = document.getElementById("waitlistPendingCount");
+  const approvedBadge = document.getElementById("waitlistApprovedCount");
+  const rejectedBadge = document.getElementById("waitlistRejectedCount");
+  if (pendingBadge)  pendingBadge.textContent  = pendingCount > 0 ? `(${pendingCount})` : "";
+  if (approvedBadge) approvedBadge.textContent = approvedCount > 0 ? `(${approvedCount})` : "";
+  if (rejectedBadge) rejectedBadge.textContent = rejectedCount > 0 ? `(${rejectedCount})` : "";
+
+  // Update total count badge
+  const countBadge = document.getElementById("waitlistCount");
+  if (countBadge) {
+    countBadge.textContent = betaWaitlist.length;
+    countBadge.style.display = betaWaitlist.length > 0 ? "" : "none";
+  }
+
+  // Filter data
+  const filtered = waitlistFilter === "all"
+    ? betaWaitlist
+    : betaWaitlist.filter((w) => w.status === waitlistFilter);
+
+  if (filtered.length === 0) {
+    wrap.innerHTML = '<div class="hc-empty">No waitlist requests.</div>';
+    return;
+  }
+
+  let html = `
+    <table class="hc-admin-table">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Requested</th>
+          <th>Status</th>
+          <th>Reviewed By</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  filtered.forEach((req) => {
+    const requestedDate = req.requestedAt?.toDate
+      ? req.requestedAt.toDate().toLocaleDateString()
+      : "—";
+    const reviewedDate = req.reviewedAt?.toDate
+      ? req.reviewedAt.toDate().toLocaleDateString()
+      : "—";
+
+    const statusBadge = req.status === "pending"
+      ? `<span style="color:#f59e0b;font-weight:600">Pending</span>`
+      : req.status === "approved"
+      ? `<span style="color:#22c55e;font-weight:600">Approved</span>`
+      : `<span style="color:#ef4444;font-weight:600">Rejected</span>`;
+
+    let actions = "";
+    if (req.status === "pending") {
+      actions = `
+        <button class="hc-submit-btn" onclick="approveWaitlistRequest('${req.id}', '${escapeHtml(req.email)}')" style="font-size:0.85rem;padding:4px 10px">
+          ✓ Approve
+        </button>
+        <button class="hc-cancel-btn" onclick="rejectWaitlistRequest('${req.id}')" style="font-size:0.85rem;padding:4px 10px;margin-left:4px">
+          ✕ Reject
+        </button>
+      `;
+    } else if (req.status === "approved") {
+      actions = `
+        <button class="hc-submit-btn" onclick="copyEmailToClipboard('${escapeHtml(req.email)}')" style="font-size:0.85rem;padding:4px 10px">
+          📧 Copy Email
+        </button>
+      `;
+    }
+
+    html += `
+      <tr>
+        <td>${escapeHtml(req.email)}</td>
+        <td>${requestedDate}</td>
+        <td>${statusBadge}</td>
+        <td>${escapeHtml(req.reviewedBy || "—")}<br><small style="opacity:0.7">${reviewedDate}</small></td>
+        <td>${actions}</td>
+      </tr>
+    `;
+  });
+
+  html += `</tbody></table>`;
+  wrap.innerHTML = html;
+}
+
+// ── Waitlist Actions ──────────────────────────────────────────
+
+async function approveWaitlistRequest(docId, email) {
+  if (!confirm(`Approve Beta access request from ${email}?\n\nRemember to grant a creator invite on the Creator Invites tab!`)) return;
+
+  try {
+    await db.collection("beta_waitlist").doc(docId).update({
+      status: "approved",
+      reviewedBy: currentUser.email,
+      reviewedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    alert(`✓ Approved ${email}!\n\nNext step: Go to "Creator Invites" tab and send them an invite.`);
+  } catch (err) {
+    alert("Failed to approve: " + err.message);
+  }
+}
+
+async function rejectWaitlistRequest(docId) {
+  const note = prompt("Optional: Add a note explaining why this request was rejected:");
+
+  try {
+    await db.collection("beta_waitlist").doc(docId).update({
+      status: "rejected",
+      reviewedBy: currentUser.email,
+      reviewedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      notes: note || ""
+    });
+  } catch (err) {
+    alert("Failed to reject: " + err.message);
+  }
+}
+
+function copyEmailToClipboard(email) {
+  navigator.clipboard.writeText(email).then(() => {
+    alert(`✓ Copied: ${email}\n\nNow email them about their Beta access!`);
+  }).catch(() => {
+    alert("Failed to copy. Email: " + email);
+  });
+}
+
+// ── Creator Invites Table ─────────────────────────────────────
+
+function renderInviteTable() {
+  const wrap = document.getElementById("inviteTable");
+  if (!wrap) return;
+
+  // Update count badge
+  const countBadge = document.getElementById("inviteCount");
+  if (countBadge) {
+    countBadge.textContent = creatorInvites.length;
+    countBadge.style.display = creatorInvites.length > 0 ? "" : "none";
+  }
+
+  if (creatorInvites.length === 0) {
+    wrap.innerHTML = '<div class="hc-empty">No creator invites yet.</div>';
+    return;
+  }
+
+  // Sort by most recent first
+  const sorted = [...creatorInvites].sort((a, b) => {
+    const aTime = a.invitedAt?.toMillis?.() || 0;
+    const bTime = b.invitedAt?.toMillis?.() || 0;
+    return bTime - aTime;
+  });
+
+  let html = `
+    <table class="hc-admin-table">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Groups Used</th>
+          <th>Invited By</th>
+          <th>Date</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  sorted.forEach((invite) => {
+    const invitedDate = invite.invitedAt?.toDate
+      ? invite.invitedAt.toDate().toLocaleDateString()
+      : "—";
+
+    const quotaText = `${invite.groupsCreated || 0}/${invite.groupsAllowed || 0}`;
+    const quotaExhausted = (invite.groupsCreated || 0) >= (invite.groupsAllowed || 0);
+
+    const statusBadge = invite.isActive
+      ? `<span style="color:#22c55e;font-weight:600">Active</span>`
+      : `<span style="color:#94a3b8;font-weight:600">Inactive</span>`;
+
+    const toggleLabel = invite.isActive ? "Deactivate" : "Activate";
+    const increaseBtn = quotaExhausted
+      ? `<button class="hc-submit-btn" onclick="increaseCreatorQuota('${escapeHtml(invite.email)}')" style="font-size:0.85rem;padding:4px 10px;margin-left:4px">+ Quota</button>`
+      : "";
+
+    html += `
+      <tr>
+        <td>${escapeHtml(invite.email)}</td>
+        <td>
+          ${quotaText}
+          ${quotaExhausted ? '<span style="color:#22c55e;margin-left:4px">✓</span>' : ""}
+        </td>
+        <td>${escapeHtml(invite.invitedBy || "—")}</td>
+        <td>${invitedDate}</td>
+        <td>${statusBadge}</td>
+        <td>
+          <button class="hc-cancel-btn" onclick="toggleCreatorInvite('${escapeHtml(invite.email)}', ${invite.isActive})" style="font-size:0.85rem;padding:4px 10px">
+            ${toggleLabel}
+          </button>
+          ${increaseBtn}
+        </td>
+      </tr>
+    `;
+  });
+
+  html += `</tbody></table>`;
+  wrap.innerHTML = html;
+}
+
+// ── Send Creator Invite ───────────────────────────────────────
+
+async function sendCreatorInvite() {
+  const emailInput = document.getElementById("inviteEmailInput");
+  const quotaInput = document.getElementById("inviteQuotaInput");
+  const btn = document.getElementById("sendInviteBtn");
+  const errEl = document.getElementById("inviteFormError");
+  const successEl = document.getElementById("inviteFormSuccess");
+
+  const email = emailInput.value.trim();
+  const quota = parseInt(quotaInput.value) || (betaSettings?.defaultCreatorQuota || 3);
+
+  if (errEl) errEl.style.display = "none";
+  if (successEl) successEl.style.display = "none";
+
+  if (!email || !email.includes("@")) {
+    if (errEl) {
+      errEl.textContent = "Please enter a valid email address.";
+      errEl.style.display = "";
+    }
+    return;
+  }
+
+  if (quota < 1 || quota > 100) {
+    if (errEl) {
+      errEl.textContent = "Quota must be between 1 and 100.";
+      errEl.style.display = "";
+    }
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+  }
+
+  try {
+    // Check if already exists
+    const existing = await db.collection("beta_creator_invites").doc(email).get();
+    if (existing.exists) {
+      if (errEl) {
+        errEl.textContent = `${email} already has a creator invite. Use the Actions menu to modify it.`;
+        errEl.style.display = "";
+      }
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Send Invite";
+      }
+      return;
+    }
+
+    // Create invite
+    await db.collection("beta_creator_invites").doc(email).set({
+      email: email,
+      invitedBy: currentUser.email,
+      invitedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      groupsAllowed: quota,
+      groupsCreated: 0,
+      isActive: true,
+      createdGroups: []
+    });
+
+    if (successEl) {
+      successEl.textContent = `✓ Creator invite sent to ${email} with ${quota} group quota!`;
+      successEl.style.display = "";
+    }
+
+    emailInput.value = "";
+    quotaInput.value = betaSettings?.defaultCreatorQuota || 3;
+
+  } catch (err) {
+    console.error("Failed to send creator invite:", err);
+    if (errEl) {
+      errEl.textContent = "Failed to send invite: " + err.message;
+      errEl.style.display = "";
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Send Invite";
+    }
+  }
+}
+
+// ── Toggle Creator Invite ─────────────────────────────────────
+
+async function toggleCreatorInvite(email, currentlyActive) {
+  const action = currentlyActive ? "deactivate" : "activate";
+  if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} creator invite for ${email}?`)) return;
+
+  try {
+    await db.collection("beta_creator_invites").doc(email).update({
+      isActive: !currentlyActive
+    });
+  } catch (err) {
+    alert("Failed to toggle invite: " + err.message);
+  }
+}
+
+// ── Increase Creator Quota ────────────────────────────────────
+
+async function increaseCreatorQuota(email) {
+  const current = creatorInvites.find((inv) => inv.email === email);
+  if (!current) return;
+
+  const newQuota = prompt(
+    `Current quota for ${email}: ${current.groupsAllowed} groups\n` +
+    `Groups created: ${current.groupsCreated}\n\n` +
+    `Enter new quota (must be >= ${current.groupsCreated}):`,
+    current.groupsAllowed + 3
+  );
+
+  if (!newQuota) return;
+
+  const quota = parseInt(newQuota);
+  if (isNaN(quota) || quota < current.groupsCreated) {
+    alert(`Invalid quota. Must be >= ${current.groupsCreated}`);
+    return;
+  }
+
+  try {
+    await db.collection("beta_creator_invites").doc(email).update({
+      groupsAllowed: quota
+    });
+    alert(`✓ Quota for ${email} updated to ${quota} groups.`);
+  } catch (err) {
+    alert("Failed to update quota: " + err.message);
+  }
+}

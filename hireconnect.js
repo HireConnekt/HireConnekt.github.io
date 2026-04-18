@@ -30,6 +30,12 @@ let isGroupAdmin        = false;  // current user has role="admin" in currentGro
 let unsubscribeGroupProfile  = null;
 let unsubscribeMemberships   = null;
 
+// ── Beta State ────────────────────────────────────────────────
+let betaSettings        = null;   // { defaultCreatorQuota, betaEnabled, betaMessage }
+let creatorInvite       = null;   // { email, groupsAllowed, groupsCreated, isActive, ... }
+let unsubscribeBetaSettings = null;
+let unsubscribeCreatorInvite = null;
+
 // ── Utilities ────────────────────────────────────────────────
 
 function escapeHtml(str) {
@@ -1439,17 +1445,216 @@ function renderResolvedRequests() {
   });
 }
 
+// ── Beta: Subscribe to settings and creator invite ────────────
+
+function subscribeBetaSettings() {
+  if (unsubscribeBetaSettings) { unsubscribeBetaSettings(); unsubscribeBetaSettings = null; }
+
+  unsubscribeBetaSettings = db.collection("hireconnect_config").doc("beta_settings")
+    .onSnapshot((snap) => {
+      if (snap.exists) {
+        betaSettings = snap.data();
+      } else {
+        betaSettings = { defaultCreatorQuota: 3, betaEnabled: false, betaMessage: "" };
+      }
+    }, () => {
+      betaSettings = { defaultCreatorQuota: 3, betaEnabled: false, betaMessage: "" };
+    });
+}
+
+function subscribeCreatorInvite() {
+  if (unsubscribeCreatorInvite) { unsubscribeCreatorInvite(); unsubscribeCreatorInvite = null; }
+  if (!currentUser || !currentUser.email) return;
+
+  unsubscribeCreatorInvite = db.collection("beta_creator_invites").doc(currentUser.email)
+    .onSnapshot((snap) => {
+      if (snap.exists) {
+        creatorInvite = snap.data();
+      } else {
+        creatorInvite = null;
+      }
+    }, () => {
+      creatorInvite = null;
+    });
+}
+
+// ── Beta: Waitlist request ────────────────────────────────────
+
+async function submitWaitlistRequest() {
+  if (!currentUser) return;
+
+  const emailInput = document.getElementById("waitlistEmailInput");
+  const btn = document.getElementById("waitlistSubmitBtn");
+  const errEl = document.getElementById("waitlistError");
+  const successEl = document.getElementById("waitlistSuccess");
+
+  const email = emailInput ? emailInput.value.trim() : currentUser.email;
+
+  if (!email) {
+    if (errEl) {
+      errEl.textContent = "Please enter your email address.";
+      errEl.style.display = "";
+    }
+    return;
+  }
+
+  if (errEl) errEl.style.display = "none";
+  if (successEl) successEl.style.display = "none";
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Submitting…";
+  }
+
+  try {
+    // Check if already submitted
+    const existing = await db.collection("beta_waitlist")
+      .where("email", "==", email)
+      .limit(1)
+      .get();
+
+    if (!existing.empty) {
+      if (successEl) {
+        successEl.textContent = "You've already requested Beta access. We'll be in touch soon!";
+        successEl.style.display = "";
+      }
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Request Beta Access";
+      }
+      return;
+    }
+
+    // Create waitlist request
+    await db.collection("beta_waitlist").add({
+      email: email,
+      requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      status: "pending",
+      reviewedBy: null,
+      reviewedAt: null,
+      notes: ""
+    });
+
+    if (successEl) {
+      successEl.textContent = "✓ Request submitted! We'll review your request within 2-3 days.";
+      successEl.style.display = "";
+    }
+    if (emailInput) emailInput.value = "";
+
+  } catch (err) {
+    console.error("Failed to submit waitlist request:", err);
+    if (errEl) {
+      errEl.textContent = "Failed to submit: " + err.message;
+      errEl.style.display = "";
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Request Beta Access";
+    }
+  }
+}
+
 // ── Group: onboarding modal (no groups yet) ───────────────────
 
 function showOnboarding() {
   // Hide role picker if it's showing
   document.getElementById("rolePickerModal").style.display = "none";
   document.getElementById("groupOnboardingModal").style.display = "flex";
+
+  // Render appropriate onboarding based on Beta status and creator invite
+  renderOnboardingContent();
+
+  const errEl = document.getElementById("onboardingError");
+  if (errEl) errEl.style.display = "none";
+}
+
+function renderOnboardingContent() {
+  const step1 = document.getElementById("onboardingStep1");
+  if (!step1) return;
+
+  // Check if user has creator invite with quota
+  const hasInvite = creatorInvite && creatorInvite.isActive &&
+                    creatorInvite.groupsCreated < creatorInvite.groupsAllowed;
+  const quotaRemaining = hasInvite ? (creatorInvite.groupsAllowed - creatorInvite.groupsCreated) : 0;
+
+  // Check if Beta is enabled
+  const isBetaMode = betaSettings && betaSettings.betaEnabled;
+
+  if (isBetaMode && !hasInvite) {
+    // Beta mode, no invite: show waitlist form
+    step1.innerHTML = `
+      <h2 class="hc-role-modal-title">Welcome to InsideHire.fyi <span class="hc-beta-badge">Beta</span></h2>
+      <p class="hc-role-modal-sub">InsideHire.fyi is currently in private Beta with invite-only group creation.</p>
+
+      <div class="hc-role-cards-picker" style="margin-top:20px">
+        <button class="hc-role-card hc-role-card--connector" onclick="showOnboardingJoin()">
+          <span class="hc-role-card-icon">🔗</span>
+          <strong>Join with Invite Link</strong>
+          <p>Have a group invite from a friend? Paste it here to join their community.</p>
+        </button>
+      </div>
+
+      <div style="margin-top:24px;padding:16px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+        <h3 style="margin:0 0 8px 0;font-size:1em">Want to create your own group?</h3>
+        <p style="margin:0 0 12px 0;font-size:0.9em;opacity:0.8">Request Beta access and we'll review your application.</p>
+        <input id="waitlistEmailInput" type="email" class="hc-input"
+          placeholder="Your email address"
+          value="${escapeHtml(currentUser?.email || '')}"
+          autocomplete="email"
+          style="width:100%;margin-bottom:8px" />
+        <div id="waitlistError" class="hc-feedback" style="display:none"></div>
+        <div id="waitlistSuccess" class="hc-feedback success" style="display:none;color:#22c55e"></div>
+        <button id="waitlistSubmitBtn" class="hc-submit-btn" onclick="submitWaitlistRequest()" style="width:100%">
+          Request Beta Access
+        </button>
+        <p style="margin:8px 0 0 0;font-size:0.85em;opacity:0.7;text-align:center">We'll get back to you within 2-3 days</p>
+      </div>
+    `;
+  } else if (hasInvite) {
+    // Has creator invite: show create + join options
+    step1.innerHTML = `
+      <h2 class="hc-role-modal-title">Welcome to InsideHire.fyi <span class="hc-beta-badge">Beta</span></h2>
+      <p class="hc-role-modal-sub">You've been invited to create groups!</p>
+      <p style="text-align:center;font-weight:600;color:var(--accent);margin:8px 0">
+        Groups Remaining: ${quotaRemaining}/${creatorInvite.groupsAllowed}
+      </p>
+
+      <div class="hc-role-cards-picker">
+        <button class="hc-role-card hc-role-card--seeker" onclick="showOnboardingCreate()">
+          <span class="hc-role-card-icon">🏠</span>
+          <strong>Create a Group</strong>
+          <p>Start a new private group for your organization, church, school, or network. You'll be the admin and can invite members.</p>
+        </button>
+        <button class="hc-role-card hc-role-card--connector" onclick="showOnboardingJoin()">
+          <span class="hc-role-card-icon">🔗</span>
+          <strong>Join with Invite Link</strong>
+          <p>Have a group invite from a friend? Paste it here to join their community.</p>
+        </button>
+      </div>
+    `;
+  } else {
+    // Beta disabled: show both options normally
+    step1.innerHTML = `
+      <h2 class="hc-role-modal-title">Welcome to InsideHire.fyi</h2>
+      <p class="hc-role-modal-sub">Get started by creating a new group or joining an existing one with an invite link.</p>
+      <div class="hc-role-cards-picker">
+        <button class="hc-role-card hc-role-card--seeker" onclick="showOnboardingCreate()">
+          <span class="hc-role-card-icon">🏠</span>
+          <strong>Create a Group</strong>
+          <p>Start a new community for your organization, school, or network.</p>
+        </button>
+        <button class="hc-role-card hc-role-card--connector" onclick="showOnboardingJoin()">
+          <span class="hc-role-card-icon">🔗</span>
+          <strong>Join a Group</strong>
+          <p>Paste an invite link or code to join an existing group.</p>
+        </button>
+      </div>
+    `;
+  }
+
   document.getElementById("onboardingStep1").style.display = "";
   document.getElementById("onboardingStepCreate").style.display = "none";
   document.getElementById("onboardingStepJoin").style.display = "none";
-  const errEl = document.getElementById("onboardingError");
-  if (errEl) errEl.style.display = "none";
 }
 
 function hideOnboarding() {
@@ -1482,6 +1687,27 @@ async function submitCreateGroup() {
   const errEl   = document.getElementById("onboardingError");
   const btn     = document.getElementById("createGroupBtn");
 
+  // Check authentication
+  if (!currentUser) {
+    errEl.textContent = "Please sign in with Google to create a group.";
+    errEl.style.display = "";
+    return;
+  }
+
+  // Check Beta requirements
+  if (betaSettings && betaSettings.betaEnabled) {
+    if (!creatorInvite || !creatorInvite.isActive) {
+      errEl.textContent = "You need a creator invite to create groups. Please request Beta access.";
+      errEl.style.display = "";
+      return;
+    }
+    if (creatorInvite.groupsCreated >= creatorInvite.groupsAllowed) {
+      errEl.textContent = `You've used all ${creatorInvite.groupsAllowed} of your group creation invites.`;
+      errEl.style.display = "";
+      return;
+    }
+  }
+
   if (!name) {
     errEl.textContent = "Please enter a group name.";
     errEl.style.display = "";
@@ -1493,10 +1719,33 @@ async function submitCreateGroup() {
 
   try {
     const groupId = await createGroup(name, desc);
+
+    // Increment creator quota if Beta is enabled
+    if (betaSettings && betaSettings.betaEnabled && creatorInvite) {
+      await db.collection("beta_creator_invites").doc(currentUser.email).update({
+        groupsCreated: firebase.firestore.FieldValue.increment(1),
+        createdGroups: firebase.firestore.FieldValue.arrayUnion(groupId)
+      });
+    }
+
     hideOnboarding();
     // subscribeMemberships will pick up the new group and call selectGroup
   } catch (e) {
-    errEl.textContent = "Failed to create group: " + e.message;
+    console.error("Failed to create group:", e);
+
+    // Parse Firebase error codes for better messaging
+    let errorMessage = "Failed to create group: ";
+    if (e.code === "permission-denied") {
+      errorMessage = "You don't have permission to create groups. Please contact support at siliconvalleysprouts@gmail.com";
+    } else if (e.code === "unauthenticated") {
+      errorMessage = "Please sign in first to create a group.";
+    } else if (e.message && e.message.includes("network")) {
+      errorMessage = "Connection failed. Please check your internet and try again.";
+    } else {
+      errorMessage += e.message || "Unknown error";
+    }
+
+    errEl.textContent = errorMessage;
     errEl.style.display = "";
     btn.disabled = false;
     btn.textContent = "Create Group";
@@ -1861,12 +2110,18 @@ document.addEventListener("DOMContentLoaded", () => {
   // Site admin config (no auth required — reads public emails list)
   subscribeAdminConfig();
 
+  // Beta settings (no auth required — reads public config)
+  subscribeBetaSettings();
+
   // Auth observer
   auth.onAuthStateChanged(async (user) => {
     currentUser = user;
     updateAdminStatus();
 
     if (user) {
+      // Subscribe to Beta creator invite status
+      subscribeCreatorInvite();
+
       // Process invite code from URL before loading memberships
       const params     = new URLSearchParams(window.location.search);
       const inviteCode = params.get("invite");
@@ -1888,12 +2143,14 @@ document.addEventListener("DOMContentLoaded", () => {
       isGroupAdmin        = false;
       openRequests        = [];
       resolvedRequests    = [];
+      creatorInvite       = null;
 
       if (unsubscribeConnectorProfile) { unsubscribeConnectorProfile(); unsubscribeConnectorProfile = null; }
       if (unsubscribeGroupProfile)     { unsubscribeGroupProfile();     unsubscribeGroupProfile     = null; }
       if (unsubscribeMemberships)      { unsubscribeMemberships();      unsubscribeMemberships      = null; }
       if (unsubscribeOpen)             { unsubscribeOpen();             unsubscribeOpen             = null; }
       if (unsubscribeResolved)         { unsubscribeResolved();         unsubscribeResolved         = null; }
+      if (unsubscribeCreatorInvite)    { unsubscribeCreatorInvite();    unsubscribeCreatorInvite    = null; }
 
       updatePageVisibility();
       renderGroupArea();

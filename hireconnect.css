@@ -1219,6 +1219,20 @@ body {
   margin: 1px auto 0;
 }
 
+.hc-beta-badge {
+  display: inline-block;
+  font-size: 0.5em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  border-radius: 4px;
+  padding: 2px 8px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
 /* === ADMIN TABS === */
 .hc-admin-tabs {
   display: flex;
@@ -1244,6 +1258,40 @@ body {
 }
 .hc-admin-tab-btn:hover { color: var(--fg); background: #f3f4f6; }
 .hc-admin-tab-btn.active { color: var(--active); border-bottom-color: var(--active); background: #fff; }
+
+/* === ADMIN FILTERS === */
+.hc-filter-btn {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.hc-filter-btn:hover {
+  background: var(--bg);
+  border-color: var(--accent);
+}
+.hc-filter-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.hc-filter-count {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  font-size: 0.75em;
+  font-weight: 700;
+  background: rgba(255,255,255,0.2);
+  border-radius: 10px;
+}
+.hc-filter-btn.active .hc-filter-count {
+  background: rgba(255,255,255,0.25);
+}
 
 /* === PLATFORM STATS GRID === */
 .hc-stats-grid {
