@@ -39,19 +39,57 @@
 
 <!-- HERO -->
 <section class="hc-hero">
+  <!-- Organic shape backgrounds -->
+  <div class="hc-hero-bg">
+    <div class="hc-hero-shape hc-hero-shape--1"></div>
+    <div class="hc-hero-shape hc-hero-shape--2"></div>
+    <div class="hc-hero-shape hc-hero-shape--3"></div>
+  </div>
+
   <div class="hc-hero-inner">
 
-    <!-- Logged-out view: image + dual CTA -->
+    <!-- Logged-out view: headline + dual CTA with illustration -->
     <div id="heroLoggedOut" class="hc-hero-loggedout">
-      <img src="img/insideHire.png" alt="InsideHire.fyi — Unlock the Hidden Hiring Insights" class="hc-hero-img" />
-      <div class="hc-hero-cta-row">
-        <div class="hc-hero-cta-col">
-          <button class="hc-hero-cta-btn hc-hero-cta-btn--seeker" onclick="switchToRole('seeker')">🎯 I'm a Job Seeker</button>
-          <span class="hc-hero-cta-tagline">Reach Out. Get Hired.</span>
+      <div class="hc-hero-content">
+        <!-- Left: Text content -->
+        <div class="hc-hero-text">
+          <h1 class="hc-hero-headline">
+            Find Your <span class="hc-highlight">Hiring Manager</span><br>Through Your Community
+          </h1>
+          <p class="hc-hero-subhead">
+            Connect with people who can introduce you to the decision-makers. InsideHire.fyi brings job seekers and company insiders together.
+          </p>
+
+          <div class="hc-hero-cta-group">
+            <button class="hc-hero-cta-btn hc-hero-cta-btn--seeker" onclick="switchToRole('seeker')">
+              <span class="hc-btn-icon">🎯</span>
+              I'm Looking for a Job
+            </button>
+            <button class="hc-hero-cta-btn hc-hero-cta-btn--connector" onclick="switchToRole('connector')">
+              <span class="hc-btn-icon">🤝</span>
+              I Want to Help
+            </button>
+          </div>
+
+          <div class="hc-hero-trust-signals">
+            <div class="hc-trust-item">
+              <span class="hc-trust-icon">🔒</span>
+              <span class="hc-trust-text">Fully Anonymous</span>
+            </div>
+            <div class="hc-trust-item">
+              <span class="hc-trust-icon">✨</span>
+              <span class="hc-trust-text">Community-Powered</span>
+            </div>
+            <div class="hc-trust-item">
+              <span class="hc-trust-icon">🚀</span>
+              <span class="hc-trust-text">Free Forever</span>
+            </div>
+          </div>
         </div>
-        <div class="hc-hero-cta-col">
-          <button class="hc-hero-cta-btn hc-hero-cta-btn--connector" onclick="switchToRole('connector')">🤝 I'm a Connector</button>
-          <span class="hc-hero-cta-tagline">Make an impact. Change a Career.</span>
+
+        <!-- Right: Hero illustration -->
+        <div class="hc-hero-visual">
+          <img src="img/insideHire.png" alt="Community helping each other find jobs" class="hc-hero-illustration" />
         </div>
       </div>
     </div>
