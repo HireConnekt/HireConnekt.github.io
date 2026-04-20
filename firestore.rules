@@ -85,9 +85,12 @@ service cloud.firestore {
                           && request.resource.data.joinMethod == 'created')
                     );
 
-      // Read: User can read their own
+      // Read: User can read their own, or group admins can read all members of their group
       allow read: if request.auth != null
-                  && resource.data.uid == request.auth.uid;
+                  && (resource.data.uid == request.auth.uid || isAdmin());
+
+      // List: Allow listing for group admins (needed for group settings members tab)
+      allow list: if request.auth != null && isAdmin();
 
       // Update/Delete: Only admins for now
       allow update, delete: if isAdmin();
