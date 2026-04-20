@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node --check /Users/juchemp/playground/hireconnekt/hireconnect.js)"
+      "Bash(node --check /Users/juchemp/playground/hireconnekt/hireconnect.js)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ]
   }
 }
