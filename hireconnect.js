@@ -1974,15 +1974,17 @@ function renderGroupMembersTab() {
       }).join("");
 
       wrap.innerHTML = `
-        <table class="hc-admin-table">
-          <thead><tr>
-            <th>User ID (last 6)</th>
-            <th style="text-align:center">Role</th>
-            <th style="text-align:center">Action</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <p style="font-size:11px;color:var(--muted);margin-top:10px">
+        <div class="hc-admin-table-wrap">
+          <table class="hc-admin-table">
+            <thead><tr>
+              <th>User ID (last 6)</th>
+              <th style="text-align:center;width:120px">Role</th>
+              <th style="text-align:center;width:140px">Action</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <p style="font-size:0.75rem;color:var(--text-tertiary);margin-top:12px;line-height:1.5">
           There must always be at least one admin. You cannot remove your own admin rights.
         </p>`;
     })
@@ -2034,19 +2036,22 @@ function renderGroupConnectorsTab() {
       }).join("");
 
       const pendingBanner = pending > 0
-        ? `<div class="hc-pending-banner" style="margin-bottom:12px">⚠️ <strong>${pending} connector(s)</strong> awaiting approval</div>`
+        ? `<div class="hc-pending-banner" style="margin-bottom:16px">⚠️ <strong>${pending} connector(s)</strong> awaiting approval</div>`
         : "";
 
       wrap.innerHTML = `
         ${pendingBanner}
-        <table class="hc-admin-table">
-          <thead><tr>
-            <th>Name</th><th>Company</th>
-            <th style="text-align:center">Status</th>
-            <th style="text-align:center">Action</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>`;
+        <div class="hc-admin-table-wrap">
+          <table class="hc-admin-table">
+            <thead><tr>
+              <th>Name</th>
+              <th>Company</th>
+              <th style="text-align:center;width:120px">Status</th>
+              <th style="text-align:center;width:100px">Action</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
     })
     .catch((e) => {
       wrap.innerHTML = `<div class="hc-empty">Failed to load connectors: ${escapeHtml(e.message)}</div>`;

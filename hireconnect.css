@@ -2541,6 +2541,21 @@ a.hc-blog-card {
   flex: 1;
 }
 
+/* Tables inside group settings tabs */
+.hc-gs-tab-pane .hc-admin-table-wrap {
+  margin-top: 0;
+}
+
+.hc-gs-tab-pane .hc-admin-table {
+  min-width: 100%;
+  font-size: 0.875rem;
+}
+
+.hc-gs-tab-pane .hc-admin-table th,
+.hc-gs-tab-pane .hc-admin-table td {
+  padding: 12px 14px;
+}
+
 /* Invite link row inside settings */
 .hc-invite-link-row {
   display: flex;
