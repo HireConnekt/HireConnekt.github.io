@@ -1681,6 +1681,10 @@ function showOnboardingStep1() {
   document.getElementById("onboardingStepJoin").style.display = "none";
 }
 
+function hideOnboarding() {
+  document.getElementById("groupOnboardingModal").style.display = "none";
+}
+
 async function submitCreateGroup() {
   const name    = (document.getElementById("newGroupNameInput").value || "").trim();
   const desc    = (document.getElementById("newGroupDescInput").value || "").trim();

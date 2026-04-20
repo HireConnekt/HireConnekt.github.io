@@ -281,8 +281,9 @@
 </div>
 
 <!-- GROUP ONBOARDING MODAL (no groups yet) -->
-<div id="groupOnboardingModal" class="hc-role-modal" style="display:none">
+<div id="groupOnboardingModal" class="hc-role-modal" style="display:none" onclick="if(event.target===this)hideOnboarding()">
   <div class="hc-role-modal-inner">
+    <button class="hc-feedback-close-btn" onclick="hideOnboarding()" aria-label="Close">✕</button>
 
     <!-- Step 1: Create or Join -->
     <div id="onboardingStep1">

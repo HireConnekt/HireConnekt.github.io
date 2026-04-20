@@ -1759,11 +1759,30 @@ select:focus-visible {
   text-align: center; position: relative;
 }
 .hc-feedback-close-btn {
-  position: absolute; top: 16px; right: 18px;
-  background: none; border: none; font-size: 1rem;
-  color: var(--muted); cursor: pointer; line-height: 1;
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.2s ease;
+  z-index: 10;
 }
-.hc-feedback-close-btn:hover { color: var(--fg); }
+.hc-feedback-close-btn:hover {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  color: #fff;
+  transform: scale(1.1);
+}
 .hc-feedback-form { text-align: left; }
 .hc-feedback-textarea {
   width: 100%; box-sizing: border-box;
