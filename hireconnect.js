@@ -177,7 +177,6 @@ async function selectGroup(groupId) {
   renderOpenRequests();
   renderResolvedRequests();
   renderCompanySidebar();
-  updateHeroCards();
 }
 
 // ── Group: create a new group ─────────────────────────────────
@@ -389,18 +388,19 @@ function loadRole() {
 }
 
 function saveRole(role) {
+  const roleChanged = currentRole !== role;
   currentRole = role;
   localStorage.setItem(roleKey(), role);
   document.getElementById("rolePickerModal").style.display = "none";
   if (role === "connector") subscribeConnectorProfile();
   if (role === "seeker") loadConnectorCompanies();
+  closeRolePopover();
   renderAuthBadge();
   renderSubmitArea();
   renderOpenRequests();
   renderResolvedRequests();
   renderCompanySidebar();
-  updateHeroCards();
-  toggleRoleSwitcher(false);
+  if (roleChanged) showRoleSwitchToast(role);
 }
 
 function switchRole() {
@@ -412,6 +412,7 @@ function switchRole() {
 function switchToRole(role) {
   if (!currentUser) { signIn(); return; }
   if (currentRole === role) return;
+  closeRolePopover();
   if (role === "seeker") {
     saveRole("seeker");
     return;
@@ -420,83 +421,172 @@ function switchToRole(role) {
     currentRole = null;
     localStorage.removeItem(roleKey());
     document.getElementById("rolePickerModal").style.display = "flex";
-    // Reset to step 1 so showConnectorCompanyStep is triggered via the modal's connector button
-    document.getElementById("roleStep1").style.display = "";
+    document.getElementById("roleStep1").style.display = "none";
     document.getElementById("roleStep2").style.display = "none";
-    // Auto-advance into connector flow
     showConnectorCompanyStep();
-    toggleRoleSwitcher(false);
   }
-  updateHeroCards();
 }
 
-function toggleRoleSwitcher(force) {
-  const details  = document.getElementById("roleSwitcherDetails");
-  const toggle   = document.getElementById("roleSwitcherToggle");
-  const switcher = document.getElementById("roleSwitcher");
-  const hero     = document.querySelector(".hc-hero");
-  if (!details || !toggle) return;
-
-  const expanded = force !== undefined ? force : details.hidden;
-  details.hidden = !expanded;
-  toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
-  toggle.textContent = expanded ? "Switch Role ▴" : "Switch Role ▾";
-  if (switcher) switcher.classList.toggle("hc-role-switcher--expanded", expanded);
-  if (hero) hero.classList.toggle("hc-hero--role-collapsed", !expanded && !!currentUser);
+function pickRoleFromPopover(role) {
+  if (currentRole === role) {
+    closeRolePopover();
+    return;
+  }
+  switchToRole(role);
 }
 
-function updatePageVisibility() {
-  const loggedIn = !!currentUser;
-  document.getElementById("heroLoggedOut").style.display   = loggedIn ? "none" : "";
-  document.getElementById("heroLoggedIn").style.display    = loggedIn ? ""     : "none";
-  document.getElementById("hcSubmitBar").style.display     = loggedIn ? ""     : "none";
-  document.getElementById("hcMainContent").style.display   = loggedIn ? ""     : "none";
-  document.getElementById("hcResolvedSection").style.display = loggedIn ? ""   : "none";
-  if (loggedIn) {
-    toggleRoleSwitcher(false);
+let rolePopoverOpen = false;
+let roleSwitchToastTimer = null;
+
+function toggleRolePopover(event) {
+  if (event) event.stopPropagation();
+  if (rolePopoverOpen) {
+    closeRolePopover();
+    return;
+  }
+  const popover = document.getElementById("rolePopover");
+  const btn = document.getElementById("roleControlBtn");
+  if (!popover || !btn) return;
+
+  updateRolePopoverState();
+  positionRolePopover(btn, popover);
+  popover.hidden = false;
+  rolePopoverOpen = true;
+  btn.setAttribute("aria-expanded", "true");
+
+  const firstOption = currentRole === "connector"
+    ? document.getElementById("rolePopoverSeeker")
+    : document.getElementById("rolePopoverConnector");
+  if (firstOption && currentRole) firstOption.focus();
+
+  setTimeout(() => {
+    document.addEventListener("click", closeRolePopoverOnOutsideClick);
+    document.addEventListener("keydown", handleRolePopoverKeydown);
+  }, 0);
+}
+
+function closeRolePopover() {
+  const popover = document.getElementById("rolePopover");
+  const btn = document.getElementById("roleControlBtn");
+  if (popover) popover.hidden = true;
+  if (btn) btn.setAttribute("aria-expanded", "false");
+  rolePopoverOpen = false;
+  document.removeEventListener("click", closeRolePopoverOnOutsideClick);
+  document.removeEventListener("keydown", handleRolePopoverKeydown);
+}
+
+function closeRolePopoverOnOutsideClick(event) {
+  const popover = document.getElementById("rolePopover");
+  const btn = document.getElementById("roleControlBtn");
+  if (popover?.contains(event.target) || btn?.contains(event.target)) return;
+  closeRolePopover();
+}
+
+function handleRolePopoverKeydown(event) {
+  if (event.key === "Escape") {
+    closeRolePopover();
+    document.getElementById("roleControlBtn")?.focus();
+    return;
+  }
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+
+  const seekerBtn = document.getElementById("rolePopoverSeeker");
+  const connectorBtn = document.getElementById("rolePopoverConnector");
+  if (!seekerBtn || !connectorBtn) return;
+
+  event.preventDefault();
+  if (document.activeElement === seekerBtn) {
+    connectorBtn.focus();
+  } else if (document.activeElement === connectorBtn) {
+    seekerBtn.focus();
   } else {
-    const hero = document.querySelector(".hc-hero");
-    if (hero) hero.classList.remove("hc-hero--role-collapsed");
+    seekerBtn.focus();
   }
 }
 
-function updateHeroCards() {
-  const seekerCard     = document.getElementById("heroCardSeeker");
-  const connectorCard  = document.getElementById("heroCardConnector");
-  const seekerBadge    = document.getElementById("heroCardSeekerBadge");
-  const connectorBadge = document.getElementById("heroCardConnectorBadge");
-  const currentEl      = document.getElementById("roleSwitcherCurrent");
-  if (!seekerCard) return;
+function positionRolePopover(btn, popover) {
+  const rect = btn.getBoundingClientRect();
+  const gap = 8;
+  popover.style.top = `${rect.bottom + gap}px`;
+  popover.style.left = `${rect.right}px`;
+  popover.style.transform = "translateX(-100%)";
 
-  seekerCard.classList.toggle("hc-hero-card--active-role",    currentRole === "seeker");
-  connectorCard.classList.toggle("hc-hero-card--active-role", currentRole === "connector");
+  requestAnimationFrame(() => {
+    const popRect = popover.getBoundingClientRect();
+    if (popRect.left < 12) {
+      popover.style.left = `${rect.left}px`;
+      popover.style.transform = "none";
+    }
+    if (popRect.right > window.innerWidth - 12) {
+      popover.style.left = `${window.innerWidth - popRect.width - 12}px`;
+      popover.style.transform = "none";
+    }
+  });
+}
 
-  if (currentRole === "seeker") {
-    seekerBadge.textContent    = "✓ Your current role";
-    connectorBadge.textContent = "Switch to Connector →";
-  } else if (currentRole === "connector") {
-    seekerBadge.textContent    = "Switch to Seeker →";
-    connectorBadge.textContent = "✓ Your current role";
-  } else {
-    seekerBadge.textContent    = "Get started as a Seeker →";
-    connectorBadge.textContent = "Get started as a Connector →";
+function updateRolePopoverState() {
+  const seekerBtn = document.getElementById("rolePopoverSeeker");
+  const connectorBtn = document.getElementById("rolePopoverConnector");
+  const seekerStatus = document.getElementById("rolePopoverSeekerStatus");
+  const connectorStatus = document.getElementById("rolePopoverConnectorStatus");
+  if (!seekerBtn || !connectorBtn) return;
+
+  const seekerActive = currentRole === "seeker";
+  const connectorActive = currentRole === "connector";
+
+  seekerBtn.classList.toggle("hc-role-popover-option--active", seekerActive);
+  connectorBtn.classList.toggle("hc-role-popover-option--active", connectorActive);
+  seekerBtn.setAttribute("aria-current", seekerActive ? "true" : "false");
+  connectorBtn.setAttribute("aria-current", connectorActive ? "true" : "false");
+
+  if (seekerStatus) {
+    seekerStatus.textContent = seekerActive ? "Current" : "Switch to Seeker";
   }
-
-  if (currentEl) {
-    if (currentRole === "seeker") {
-      currentEl.textContent = "🎯 Seeker";
-      currentEl.className = "hc-role-switcher-current hc-role-switcher-current--seeker";
-    } else if (currentRole === "connector") {
-      currentEl.textContent = "🤝 Connector";
-      currentEl.className = "hc-role-switcher-current hc-role-switcher-current--connector";
+  if (connectorStatus) {
+    if (connectorActive) {
+      connectorStatus.textContent = !isConnectorApproved
+        ? "Current · Pending approval"
+        : "Current";
     } else {
-      currentEl.textContent = "Choose your role";
-      currentEl.className = "hc-role-switcher-current";
+      connectorStatus.textContent = "Switch to Connector";
     }
   }
 }
 
+function showRoleSwitchToast(role) {
+  const toast = document.getElementById("roleSwitchToast");
+  const btn = document.getElementById("roleControlBtn");
+  if (!toast || !btn) return;
+
+  const label = role === "seeker" ? "Seeker" : "Connector";
+  toast.textContent = `Now viewing as ${label}`;
+
+  const rect = btn.getBoundingClientRect();
+  toast.style.top = `${rect.bottom + 8}px`;
+  toast.style.left = `${rect.right}px`;
+  toast.style.transform = "translateX(-100%)";
+  toast.classList.add("hc-role-switch-toast--visible");
+
+  clearTimeout(roleSwitchToastTimer);
+  roleSwitchToastTimer = setTimeout(() => {
+    toast.classList.remove("hc-role-switch-toast--visible");
+  }, 2800);
+}
+
+function updatePageVisibility() {
+  const loggedIn = !!currentUser;
+  const hero = document.querySelector(".hc-hero");
+  if (hero) hero.style.display = loggedIn ? "none" : "";
+  document.getElementById("hcSubmitBar").style.display     = loggedIn ? ""     : "none";
+  document.getElementById("hcMainContent").style.display   = loggedIn ? ""     : "none";
+  document.getElementById("hcResolvedSection").style.display = loggedIn ? ""   : "none";
+  if (!loggedIn) closeRolePopover();
+}
+
 function showRolePicker() {
+  closeRolePopover();
+  document.getElementById("roleStep1").style.display = "";
+  document.getElementById("roleStep2").style.display = "none";
   document.getElementById("rolePickerModal").style.display = "flex";
 }
 
@@ -680,11 +770,16 @@ function renderAuthBadge() {
 
   if (currentUser) {
     const name = escapeHtml(currentUser.displayName || currentUser.email || "User");
-    const roleBadge = currentRole
-      ? `<span class="hc-role-badge hc-role-badge--${currentRole}">
+    const roleControl = currentRole
+      ? `<button type="button" class="hc-role-control hc-role-control--${currentRole}" id="roleControlBtn"
+                aria-expanded="false" aria-haspopup="dialog" aria-controls="rolePopover"
+                onclick="toggleRolePopover(event)">
            ${currentRole === "seeker" ? "🎯 Seeker" : "🤝 Connector"}
-         </span>`
-      : "";
+           <span class="hc-role-control-chevron" aria-hidden="true">▾</span>
+         </button>`
+      : `<button type="button" class="hc-role-control hc-role-control--unset" onclick="showRolePicker()">
+           Choose role
+         </button>`;
     const siteAdminLink = isHcAdmin
       ? `<a href="admin.html" class="hc-admin-link">⚙ Site Admin</a>`
       : "";
@@ -696,12 +791,13 @@ function renderAuthBadge() {
       : "";
     const groupBtns = userGroups.length > 1 ? switchGroupBtn : (userGroups.length > 0 ? joinGroupBtn : "");
     area.innerHTML = `
-      ${roleBadge}
+      ${roleControl}
       ${siteAdminLink}
       ${groupBtns}
       <span class="hc-auth-name" title="${name}">${name}</span>
       <button class="hc-signout-btn" onclick="signOut()">Sign Out</button>
     `;
+    updateRolePopoverState();
   } else {
     area.innerHTML = `
       <button class="hc-signin-btn" onclick="signIn()">Sign in</button>
@@ -2207,7 +2303,6 @@ document.addEventListener("DOMContentLoaded", () => {
       renderOpenRequests();
       renderResolvedRequests();
       renderCompanySidebar();
-      updateHeroCards();
     }
   });
 });

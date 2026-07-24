@@ -37,6 +37,32 @@
   <div id="authArea" class="hc-auth-area"></div>
 </header>
 
+<!-- Role switch popover (anchored to topbar control via JS) -->
+<div id="rolePopover" class="hc-role-popover" hidden role="dialog" aria-label="Switch role">
+  <p class="hc-role-popover-title">View as</p>
+  <button type="button" class="hc-role-popover-option" id="rolePopoverSeeker" onclick="pickRoleFromPopover('seeker')">
+    <span class="hc-role-popover-option-main">
+      <span class="hc-role-popover-icon" aria-hidden="true">🎯</span>
+      <span>
+        <strong>Seeker</strong>
+        <span class="hc-role-popover-desc">Submit job posts and track responses</span>
+      </span>
+    </span>
+    <span class="hc-role-popover-status" id="rolePopoverSeekerStatus"></span>
+  </button>
+  <button type="button" class="hc-role-popover-option" id="rolePopoverConnector" onclick="pickRoleFromPopover('connector')">
+    <span class="hc-role-popover-option-main">
+      <span class="hc-role-popover-icon" aria-hidden="true">🤝</span>
+      <span>
+        <strong>Connector</strong>
+        <span class="hc-role-popover-desc">Share hiring manager info or referrals</span>
+      </span>
+    </span>
+    <span class="hc-role-popover-status" id="rolePopoverConnectorStatus"></span>
+  </button>
+</div>
+<div id="roleSwitchToast" class="hc-role-switch-toast" aria-live="polite"></div>
+
 <!-- HERO -->
 <section class="hc-hero">
   <!-- Organic shape backgrounds -->
@@ -89,44 +115,6 @@
         <!-- Right: Hero illustration -->
         <div class="hc-hero-visual">
           <img src="img/insideHire.png" alt="Community helping each other find jobs" class="hc-hero-illustration" />
-        </div>
-      </div>
-    </div>
-
-    <!-- Logged-in view: collapsible role switcher -->
-    <div id="heroLoggedIn" style="display:none">
-      <div class="hc-role-switcher" id="roleSwitcher">
-        <div class="hc-role-switcher-bar">
-          <span class="hc-role-switcher-current" id="roleSwitcherCurrent"></span>
-          <button type="button" class="hc-role-switcher-toggle" id="roleSwitcherToggle"
-                  aria-expanded="false" aria-controls="roleSwitcherDetails"
-                  onclick="toggleRoleSwitcher()">
-            Switch Role ▾
-          </button>
-        </div>
-        <div class="hc-role-switcher-details" id="roleSwitcherDetails" hidden>
-          <p class="hc-hero-headline">
-            Connect with the Hiring Manager - faster!<br>
-            <span class="hc-hero-sub">InsideHire.fyi helps you identify the hiring manager behind a job posting. Powered by a trusted community.</span>
-          </p>
-          <div class="hc-hero-cards">
-            <div class="hc-hero-card hc-hero-card--seeker" id="heroCardSeeker" onclick="switchToRole('seeker')" onkeydown="if(event.key==='Enter'||event.key===' ')switchToRole('seeker')" role="button" tabindex="0" aria-label="Switch to Job Seeker role">
-              <span class="hc-hero-card-icon">🎯</span>
-              <div>
-                <strong>Job Seekers</strong>
-                <p>Sign in and submit a job posting - optionally <b>anonymously</b>. InsideHire.fyi helps identify the hiring manager behind a job posting, enabling you to reach out directly through LinkedIn messages or shared connections.</p>
-                <span class="hc-hero-card-badge" id="heroCardSeekerBadge"></span>
-              </div>
-            </div>
-            <div class="hc-hero-card hc-hero-card--helper" id="heroCardConnector" onclick="switchToRole('connector')" onkeydown="if(event.key==='Enter'||event.key===' ')switchToRole('connector')" role="button" tabindex="0" aria-label="Switch to Connector role">
-              <span class="hc-hero-card-icon">🤝</span>
-              <div>
-                <strong>Connectors</strong>
-                <p>Work at the company? <b>Anonymously</b> share hiring manager info or offer a referral. A few seconds of your time can change someone's career trajectory. <small>Company affiliation may be verified.</small></p>
-                <span class="hc-hero-card-badge" id="heroCardConnectorBadge"></span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
