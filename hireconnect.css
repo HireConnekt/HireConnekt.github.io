@@ -339,6 +339,66 @@ body {
   margin: 0 auto;
 }
 
+/* Logged-in collapsible role switcher */
+.hc-role-switcher-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.hc-role-switcher-current {
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 20px;
+  padding: 4px 12px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.hc-role-switcher-current--seeker {
+  background: #eff6ff;
+  color: var(--active);
+  border-color: #bfdbfe;
+}
+
+.hc-role-switcher-current--connector {
+  background: #f0fdf4;
+  color: var(--p0);
+  border-color: #bbf7d0;
+}
+
+.hc-role-switcher-toggle {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--active);
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 20px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.hc-role-switcher-toggle:hover {
+  background: #dbeafe;
+}
+
+.hc-role-switcher-details {
+  margin-top: 16px;
+}
+
+.hc-hero--role-collapsed {
+  padding: 40px 20px 48px;
+}
+
 /* Logged-in hero headline (different from logged-out) */
 #heroLoggedIn .hc-hero-headline {
   font-family: var(--font-display);

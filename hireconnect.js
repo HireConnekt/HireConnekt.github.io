@@ -400,6 +400,7 @@ function saveRole(role) {
   renderResolvedRequests();
   renderCompanySidebar();
   updateHeroCards();
+  toggleRoleSwitcher(false);
 }
 
 function switchRole() {
@@ -413,7 +414,9 @@ function switchToRole(role) {
   if (currentRole === role) return;
   if (role === "seeker") {
     saveRole("seeker");
-  } else if (role === "connector") {
+    return;
+  }
+  if (role === "connector") {
     currentRole = null;
     localStorage.removeItem(roleKey());
     document.getElementById("rolePickerModal").style.display = "flex";
@@ -422,8 +425,24 @@ function switchToRole(role) {
     document.getElementById("roleStep2").style.display = "none";
     // Auto-advance into connector flow
     showConnectorCompanyStep();
+    toggleRoleSwitcher(false);
   }
   updateHeroCards();
+}
+
+function toggleRoleSwitcher(force) {
+  const details  = document.getElementById("roleSwitcherDetails");
+  const toggle   = document.getElementById("roleSwitcherToggle");
+  const switcher = document.getElementById("roleSwitcher");
+  const hero     = document.querySelector(".hc-hero");
+  if (!details || !toggle) return;
+
+  const expanded = force !== undefined ? force : details.hidden;
+  details.hidden = !expanded;
+  toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+  toggle.textContent = expanded ? "Switch Role ▴" : "Switch Role ▾";
+  if (switcher) switcher.classList.toggle("hc-role-switcher--expanded", expanded);
+  if (hero) hero.classList.toggle("hc-hero--role-collapsed", !expanded && !!currentUser);
 }
 
 function updatePageVisibility() {
@@ -433,6 +452,12 @@ function updatePageVisibility() {
   document.getElementById("hcSubmitBar").style.display     = loggedIn ? ""     : "none";
   document.getElementById("hcMainContent").style.display   = loggedIn ? ""     : "none";
   document.getElementById("hcResolvedSection").style.display = loggedIn ? ""   : "none";
+  if (loggedIn) {
+    toggleRoleSwitcher(false);
+  } else {
+    const hero = document.querySelector(".hc-hero");
+    if (hero) hero.classList.remove("hc-hero--role-collapsed");
+  }
 }
 
 function updateHeroCards() {
@@ -440,6 +465,7 @@ function updateHeroCards() {
   const connectorCard  = document.getElementById("heroCardConnector");
   const seekerBadge    = document.getElementById("heroCardSeekerBadge");
   const connectorBadge = document.getElementById("heroCardConnectorBadge");
+  const currentEl      = document.getElementById("roleSwitcherCurrent");
   if (!seekerCard) return;
 
   seekerCard.classList.toggle("hc-hero-card--active-role",    currentRole === "seeker");
@@ -454,6 +480,19 @@ function updateHeroCards() {
   } else {
     seekerBadge.textContent    = "Get started as a Seeker →";
     connectorBadge.textContent = "Get started as a Connector →";
+  }
+
+  if (currentEl) {
+    if (currentRole === "seeker") {
+      currentEl.textContent = "🎯 Seeker";
+      currentEl.className = "hc-role-switcher-current hc-role-switcher-current--seeker";
+    } else if (currentRole === "connector") {
+      currentEl.textContent = "🤝 Connector";
+      currentEl.className = "hc-role-switcher-current hc-role-switcher-current--connector";
+    } else {
+      currentEl.textContent = "Choose your role";
+      currentEl.className = "hc-role-switcher-current";
+    }
   }
 }
 
