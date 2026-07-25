@@ -2740,16 +2740,78 @@ a.hc-blog-card {
 /* Tables inside group settings tabs */
 .hc-gs-tab-pane .hc-admin-table-wrap {
   margin-top: 0;
+  overflow-x: auto;
 }
 
-.hc-gs-tab-pane .hc-admin-table {
+.hc-gs-tab-pane .hc-admin-table,
+.hc-gs-table {
   min-width: 100%;
+  width: 100%;
+  table-layout: fixed;
   font-size: 0.875rem;
 }
 
 .hc-gs-tab-pane .hc-admin-table th,
 .hc-gs-tab-pane .hc-admin-table td {
   padding: 12px 14px;
+  vertical-align: middle;
+}
+
+.hc-gs-col-name {
+  text-align: left;
+}
+
+.hc-gs-col-company {
+  width: 22%;
+  text-align: left;
+  word-break: break-word;
+}
+
+.hc-gs-col-status {
+  width: 140px;
+  text-align: center;
+}
+
+.hc-gs-col-action {
+  width: 130px;
+  text-align: center;
+}
+
+.hc-gs-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.hc-gs-email {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 2px;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.hc-gs-you {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.hc-gs-action-muted {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.hc-gs-footnote {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+.hc-gs-table .hc-toggle-btn {
+  white-space: nowrap;
 }
 
 /* Invite link row inside settings */

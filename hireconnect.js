@@ -203,12 +203,14 @@ async function createGroup(name, description) {
   await db.collection("hireconnect_memberships")
     .doc(`${currentUser.uid}_${groupRef.id}`)
     .set({
-      uid:        currentUser.uid,
-      groupId:    groupRef.id,
-      groupName:  name,
-      role:       "admin",
-      joinedAt:   firebase.firestore.FieldValue.serverTimestamp(),
-      joinMethod: "created",
+      uid:         currentUser.uid,
+      groupId:     groupRef.id,
+      groupName:   name,
+      displayName: currentUser.displayName || "",
+      email:       currentUser.email || "",
+      role:        "admin",
+      joinedAt:    firebase.firestore.FieldValue.serverTimestamp(),
+      joinMethod:  "created",
     });
 
   return groupRef.id;
@@ -239,12 +241,14 @@ async function processInviteCode(code) {
     const existing = await db.collection("hireconnect_memberships").doc(memberDocId).get();
     if (!existing.exists) {
       await db.collection("hireconnect_memberships").doc(memberDocId).set({
-        uid:        currentUser.uid,
+        uid:         currentUser.uid,
         groupId,
         groupName:  groupData.name,
-        role:       "member",
-        joinedAt:   firebase.firestore.FieldValue.serverTimestamp(),
-        joinMethod: "invite",
+        displayName: currentUser.displayName || "",
+        email:       currentUser.email || "",
+        role:        "member",
+        joinedAt:    firebase.firestore.FieldValue.serverTimestamp(),
+        joinMethod:  "invite",
       });
       // Increment member count
       db.collection("hireconnect_groups").doc(groupId).update({
@@ -2072,58 +2076,104 @@ function copyInviteLink() {
   }).catch(() => { el.select(); document.execCommand("copy"); });
 }
 
+function resolveMemberName(member, profileByUid) {
+  const isMe = currentUser && member.uid === currentUser.uid;
+  const profile = profileByUid[member.uid] || {};
+  const displayName =
+    member.displayName ||
+    profile.displayName ||
+    (isMe ? (currentUser.displayName || "") : "") ||
+    "";
+  const email =
+    member.email ||
+    profile.email ||
+    (isMe ? (currentUser.email || "") : "") ||
+    "";
+  return {
+    displayName: displayName.trim() || email.trim() || "Unknown member",
+    email: displayName.trim() ? email.trim() : "",
+  };
+}
+
 function renderGroupMembersTab() {
   const wrap = document.getElementById("groupSettingsTab_members");
   if (!wrap || !currentGroupId) return;
   wrap.innerHTML = `<div class="hc-empty">Loading members…</div>`;
 
-  db.collection("hireconnect_memberships")
-    .where("groupId", "==", currentGroupId)
-    .get()
-    .then((snap) => {
-      if (snap.empty) {
+  Promise.all([
+    db.collection("hireconnect_memberships").where("groupId", "==", currentGroupId).get(),
+    db.collection("hireconnect_connectors").where("groupId", "==", currentGroupId).get(),
+  ])
+    .then(([memberSnap, connectorSnap]) => {
+      if (memberSnap.empty) {
         wrap.innerHTML = `<div class="hc-empty">No members yet.</div>`;
         return;
       }
-      const members = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      const profileByUid = {};
+      connectorSnap.docs.forEach((d) => {
+        const data = d.data();
+        if (!data.uid) return;
+        profileByUid[data.uid] = {
+          displayName: data.displayName || "",
+          email: data.email || "",
+        };
+      });
+      [...openRequests, ...resolvedRequests].forEach((r) => {
+        if (!r.submittedByUid || !r.submittedBy) return;
+        if (!profileByUid[r.submittedByUid]?.displayName) {
+          profileByUid[r.submittedByUid] = {
+            displayName: r.submittedBy,
+            email: profileByUid[r.submittedByUid]?.email || "",
+          };
+        }
+      });
+
+      const members = memberSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       const adminCount = members.filter((m) => m.role === "admin").length;
 
       const rows = members.sort((a, b) => {
-        if (a.role === b.role) return (a.uid || "").localeCompare(b.uid || "");
+        const nameA = resolveMemberName(a, profileByUid).displayName;
+        const nameB = resolveMemberName(b, profileByUid).displayName;
+        if (a.role === b.role) return nameA.localeCompare(nameB);
         return a.role === "admin" ? -1 : 1;
       }).map((m) => {
         const isMe = m.uid === currentUser.uid;
+        const { displayName, email } = resolveMemberName(m, profileByUid);
         const canDemote = m.role === "admin" && adminCount > 1 && !isMe;
         const canPromote = m.role === "member";
         const actionBtn = canPromote
           ? `<button class="hc-toggle-btn hc-toggle-btn--enable" onclick="setMemberRole('${m.uid}','${currentGroupId}','admin')">Make Admin</button>`
           : canDemote
             ? `<button class="hc-toggle-btn hc-toggle-btn--disable" onclick="setMemberRole('${m.uid}','${currentGroupId}','member')">Remove Admin</button>`
-            : `<span style="color:var(--muted);font-size:0.78rem">${isMe ? "(you)" : ""}</span>`;
+            : `<span class="hc-gs-action-muted">${isMe ? "(you)" : "—"}</span>`;
 
         const rolePill = m.role === "admin"
           ? `<span class="hc-approved-pill">Admin</span>`
           : `<span class="hc-unapproved-pill">Member</span>`;
 
         return `<tr>
-          <td style="font-weight:600">${escapeHtml(m.uid.slice(-6))}</td>
-          <td style="text-align:center">${rolePill}</td>
-          <td style="text-align:center">${actionBtn}</td>
+          <td class="hc-gs-col-name">
+            <div class="hc-gs-name">${escapeHtml(displayName)}${isMe ? ' <span class="hc-gs-you">you</span>' : ""}</div>
+            ${email ? `<div class="hc-gs-email">${escapeHtml(email)}</div>` : ""}
+          </td>
+          <td class="hc-gs-col-status">${rolePill}</td>
+          <td class="hc-gs-col-action">${actionBtn}</td>
         </tr>`;
       }).join("");
 
       wrap.innerHTML = `
         <div class="hc-admin-table-wrap">
-          <table class="hc-admin-table">
+          <table class="hc-admin-table hc-gs-table">
             <thead><tr>
-              <th>User ID (last 6)</th>
-              <th style="text-align:center;width:120px">Role</th>
-              <th style="text-align:center;width:140px">Action</th>
+              <th class="hc-gs-col-name">Name</th>
+              <th class="hc-gs-col-status">Role</th>
+              <th class="hc-gs-col-action">Action</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
-        <p style="font-size:0.75rem;color:var(--text-tertiary);margin-top:12px;line-height:1.5">
+        <p class="hc-gs-footnote">
           There must always be at least one admin. You cannot remove your own admin rights.
         </p>`;
     })
@@ -2162,13 +2212,13 @@ function renderGroupConnectorsTab() {
           ? "hc-toggle-btn hc-toggle-btn--disable"
           : "hc-toggle-btn hc-toggle-btn--enable";
         return `<tr>
-          <td>
-            <div style="font-weight:600">${escapeHtml(c.displayName || "Unknown")}</div>
-            <div style="font-size:0.78rem;color:var(--muted)">${escapeHtml(c.email || "")}</div>
+          <td class="hc-gs-col-name">
+            <div class="hc-gs-name">${escapeHtml(c.displayName || "Unknown")}</div>
+            ${c.email ? `<div class="hc-gs-email">${escapeHtml(c.email)}</div>` : ""}
           </td>
-          <td>${escapeHtml(c.company || "—")}</td>
-          <td style="text-align:center">${statusPill}</td>
-          <td style="text-align:center">
+          <td class="hc-gs-col-company">${escapeHtml(c.company || "—")}</td>
+          <td class="hc-gs-col-status">${statusPill}</td>
+          <td class="hc-gs-col-action">
             <button class="${toggleClass}" onclick="approveConnectorForGroup('${c.id}',${c.approved}); renderGroupConnectorsTab();">${toggleLabel}</button>
           </td>
         </tr>`;
@@ -2181,12 +2231,12 @@ function renderGroupConnectorsTab() {
       wrap.innerHTML = `
         ${pendingBanner}
         <div class="hc-admin-table-wrap">
-          <table class="hc-admin-table">
+          <table class="hc-admin-table hc-gs-table">
             <thead><tr>
-              <th>Name</th>
-              <th>Company</th>
-              <th style="text-align:center;width:120px">Status</th>
-              <th style="text-align:center;width:100px">Action</th>
+              <th class="hc-gs-col-name">Name</th>
+              <th class="hc-gs-col-company">Company</th>
+              <th class="hc-gs-col-status">Status</th>
+              <th class="hc-gs-col-action">Action</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
