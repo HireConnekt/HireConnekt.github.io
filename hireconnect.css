@@ -1857,6 +1857,17 @@ select:focus-visible {
   box-shadow: var(--shadow-xs);
 }
 
+.hc-approved-pill,
+.hc-unapproved-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  line-height: 1.2;
+  vertical-align: middle;
+}
+
 .hc-approved-pill {
   background: linear-gradient(135deg, rgba(107,161,138,0.15), rgba(107,161,138,0.2));
   color: var(--secondary-dark);
@@ -1867,8 +1878,13 @@ select:focus-visible {
   font-weight: var(--weight-semibold);
 }
 .hc-unapproved-pill {
-  background: #fffbeb; color: #d97706; border: 1px solid #fcd34d;
-  border-radius: 20px; padding: 2px 9px; font-size: 0.75rem; font-weight: 600;
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fcd34d;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 .hc-access-denied {
   text-align: center; padding: 60px 20px; color: var(--muted);
@@ -2747,7 +2763,7 @@ a.hc-blog-card {
 .hc-gs-table {
   min-width: 100%;
   width: 100%;
-  table-layout: fixed;
+  table-layout: auto;
   font-size: 0.875rem;
 }
 
@@ -2759,21 +2775,24 @@ a.hc-blog-card {
 
 .hc-gs-col-name {
   text-align: left;
+  min-width: 160px;
 }
 
 .hc-gs-col-company {
-  width: 22%;
   text-align: left;
   word-break: break-word;
+  min-width: 100px;
 }
 
 .hc-gs-col-status {
-  width: 140px;
+  width: 1%;
+  white-space: nowrap;
   text-align: center;
 }
 
 .hc-gs-col-action {
-  width: 130px;
+  width: 1%;
+  white-space: nowrap;
   text-align: center;
 }
 
